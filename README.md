@@ -136,13 +136,19 @@ npm install
 npm run lint
 ```
 
-3. Run tests:
+3. Run unit coverage gate (100%):
 
 ```bash
-npm test
+npm run test:unit
 ```
 
-4. Build:
+4. Run integration tests:
+
+```bash
+npm run test:integration
+```
+
+5. Build:
 
 ```bash
 npm run build
@@ -162,6 +168,7 @@ npm run test:e2e:localstack
 npm run localstack:up
 npm run localstack:health
 npm run test:e2e
+npm run test:e2e:coverage
 npm run localstack:down
 ```
 

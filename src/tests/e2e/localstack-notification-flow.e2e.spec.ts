@@ -51,6 +51,7 @@ let tableCreated = false;
 let busCreated = false;
 let ruleCreated = false;
 let queueCreated = false;
+let createdNotificationId = "";
 
 jest.setTimeout(60000);
 
@@ -230,6 +231,7 @@ describe("localstack e2e notification flow", () => {
     expect(response.statusCode).toBe(201);
     const created = JSON.parse(response.body) as { id: string };
     expect(created.id).toBeDefined();
+    createdNotificationId = created.id;
 
     let messageBody = "";
     for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -249,5 +251,145 @@ describe("localstack e2e notification flow", () => {
 
     expect(messageBody).toContain("OrderApproved");
     expect(messageBody).toContain(created.id);
+  });
+
+  it("lists notifications", async () => {
+    const { handler } = await import("../../handlers/api/notification-api-lambda");
+
+    const response = await handler({
+      httpMethod: "GET",
+      path: "/notifications",
+      body: null,
+      pathParameters: null,
+    } as unknown as APIGatewayProxyEvent);
+
+    expect(response.statusCode).toBe(200);
+    const list = JSON.parse(response.body) as Array<{ id: string }>;
+    expect(list.some((item) => item.id === createdNotificationId)).toBe(true);
+  });
+
+  it("gets notification by id", async () => {
+    const { handler } = await import("../../handlers/api/notification-api-lambda");
+
+    const response = await handler({
+      httpMethod: "GET",
+      path: `/notifications/${createdNotificationId}`,
+      body: null,
+      pathParameters: { id: createdNotificationId },
+    } as unknown as APIGatewayProxyEvent);
+
+    expect(response.statusCode).toBe(200);
+    const data = JSON.parse(response.body) as { id: string };
+    expect(data.id).toBe(createdNotificationId);
+  });
+
+  it("cancels notification by id", async () => {
+    const { handler } = await import("../../handlers/api/notification-api-lambda");
+
+    const response = await handler({
+      httpMethod: "DELETE",
+      path: `/notifications/${createdNotificationId}`,
+      body: null,
+      pathParameters: { id: createdNotificationId },
+    } as unknown as APIGatewayProxyEvent);
+
+    expect(response.statusCode).toBe(200);
+    const data = JSON.parse(response.body) as { status: string };
+    expect(data.status).toBe("CANCELED");
+  });
+
+  it("creates notification when payload is omitted", async () => {
+    const { handler } = await import("../../handlers/api/notification-api-lambda");
+
+    const response = await handler({
+      httpMethod: "POST",
+      path: "/notifications",
+      body: JSON.stringify({
+        eventType: "OrderApproved",
+        recipient: "user@email.com",
+        channels: ["EMAIL"],
+      }),
+      pathParameters: null,
+    } as unknown as APIGatewayProxyEvent);
+
+    expect(response.statusCode).toBe(201);
+  });
+
+  it("returns 404 for route not found", async () => {
+    const { handler } = await import("../../handlers/api/notification-api-lambda");
+
+    const response = await handler({
+      httpMethod: "PUT",
+      path: "/unknown-route",
+      body: null,
+      pathParameters: null,
+    } as unknown as APIGatewayProxyEvent);
+
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body)).toEqual({ message: "route not found" });
+  });
+
+  it("returns 400 when POST body is missing", async () => {
+    const { handler } = await import("../../handlers/api/notification-api-lambda");
+
+    const response = await handler({
+      httpMethod: "POST",
+      path: "/notifications",
+      body: null,
+      pathParameters: null,
+    } as unknown as APIGatewayProxyEvent);
+
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toEqual({ message: "body is required" });
+  });
+
+  it("returns 404 for unknown notification id", async () => {
+    const { handler } = await import("../../handlers/api/notification-api-lambda");
+
+    const response = await handler({
+      httpMethod: "GET",
+      path: "/notifications/00000000-0000-0000-0000-000000000001",
+      body: null,
+      pathParameters: { id: "00000000-0000-0000-0000-000000000001" },
+    } as unknown as APIGatewayProxyEvent);
+
+    expect(response.statusCode).toBe(404);
+  });
+
+  it("returns 500 for invalid JSON body", async () => {
+    const { handler } = await import("../../handlers/api/notification-api-lambda");
+
+    const response = await handler({
+      httpMethod: "POST",
+      path: "/notifications",
+      body: "{",
+      pathParameters: null,
+    } as unknown as APIGatewayProxyEvent);
+
+    expect(response.statusCode).toBe(500);
+    expect(JSON.parse(response.body)).toEqual({ message: "internal error" });
+  });
+
+  it("returns 500 and logs unknown when a non-Error is thrown", async () => {
+    const { handler } = await import("../../handlers/api/notification-api-lambda");
+
+    const originalJsonParse = JSON.parse;
+    JSON.parse = (() => {
+      throw "non-error-throw";
+    }) as typeof JSON.parse;
+
+    try {
+      const response = await handler({
+        httpMethod: "POST",
+        path: "/notifications",
+        body: "{}",
+        pathParameters: null,
+      } as unknown as APIGatewayProxyEvent);
+
+      expect(response.statusCode).toBe(500);
+      expect(originalJsonParse(response.body)).toEqual({ message: "internal error" });
+    } finally {
+      JSON.parse = originalJsonParse;
+    }
   });
 });

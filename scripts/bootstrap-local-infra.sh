@@ -152,9 +152,9 @@ show_outputs() {
 
   echo "Quick test suggestion (Postman or curl):"
   if [[ -n "$api_url" ]]; then
-    echo "  URL base: $api_url"
+    echo "  Base URL: $api_url"
     echo "  Header: x-api-key: $API_KEY_VALUE"
-    echo "  Exemplo:"
+    echo "  Example:"
     cat <<EOF
     curl -X POST "$api_url/notifications" \
       -H "Content-Type: application/json" \
