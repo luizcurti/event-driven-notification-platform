@@ -1,0 +1,193 @@
+{
+  "info": {
+    "_postman_id": "d88d76e7-4692-4e07-9a14-44a4d11d4d0f",
+    "name": "Event-Driven Notification Platform - Local",
+    "description": "Collection to test notification routes locally. Use the generated LocalStack environment or set apiUrl and apiKey manually.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "POST /notifications - Create notification",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "disabled": false
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"eventType\": \"OrderApproved\",\n  \"recipient\": \"user@email.com\",\n  \"channels\": [\"EMAIL\", \"SMS\"],\n  \"payload\": {\n    \"orderId\": \"12345\"\n  }\n}"
+        },
+        "url": {
+          "raw": "{{apiUrl}}/notifications",
+          "host": [
+            "{{apiUrl}}"
+          ],
+          "path": [
+            "notifications"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "",
+              "var data = pm.response.json();",
+              "pm.test('Response has id and status', function () {",
+              "  pm.expect(data.id).to.be.a('string');",
+              "  pm.expect(data.status).to.be.a('string');",
+              "});",
+              "",
+              "pm.collectionVariables.set('notificationId', data.id);"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "GET /notifications - List",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "disabled": false
+          }
+        ],
+        "url": {
+          "raw": "{{apiUrl}}/notifications",
+          "host": [
+            "{{apiUrl}}"
+          ],
+          "path": [
+            "notifications"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "GET /notifications/{id} - Get by id",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "disabled": false
+          }
+        ],
+        "url": {
+          "raw": "{{apiUrl}}/notifications/{{notificationId}}",
+          "host": [
+            "{{apiUrl}}"
+          ],
+          "path": [
+            "notifications",
+            "{{notificationId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "",
+              "var data = pm.response.json();",
+              "pm.test('Response id matches variable', function () {",
+              "  pm.expect(data.id).to.eql(pm.collectionVariables.get('notificationId'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    },
+    {
+      "name": "DELETE /notifications/{id} - Cancel",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "x-api-key",
+            "value": "{{apiKey}}",
+            "disabled": false
+          }
+        ],
+        "url": {
+          "raw": "{{apiUrl}}/notifications/{{notificationId}}",
+          "host": [
+            "{{apiUrl}}"
+          ],
+          "path": [
+            "notifications",
+            "{{notificationId}}"
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Status code is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "apiUrl",
+      "value": ""
+    },
+    {
+      "key": "apiKey",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "notificationId",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

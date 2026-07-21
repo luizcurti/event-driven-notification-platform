@@ -1,0 +1,14 @@
+services:
+  localstack:
+    profiles: ["e2e-localstack"]
+    image: localstack/localstack:3.8
+    container_name: event-driven-localstack
+    ports:
+      - "${LOCALSTACK_HOST_PORT:-4566}:4566"
+    environment:
+      - SERVICES=dynamodb,events,sqs,lambda,cloudwatch,iam,apigateway
+      - AWS_DEFAULT_REGION=us-east-1
+      - DEBUG=0
+    volumes:
+      - "./.localstack:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"

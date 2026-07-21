@@ -1,0 +1,9 @@
+node_modules
+coverage
+dist
+.terraform
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+.env
+.DS_Store

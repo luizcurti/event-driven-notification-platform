@@ -1,0 +1,796 @@
+# Project: Event-Driven Notification Platform
+
+## Project Name
+
+`event-driven-notification-platform`
+
+---
+
+# Objective
+
+Build a notification platform based on an **Event-Driven Architecture (EDA)**.
+
+The system must receive events from multiple external systems and automatically determine which communication channels should be triggered.
+
+### Example Events
+
+* OrderApproved
+* UserRegistered
+* PaymentFailed
+* PasswordChanged
+* DocumentProcessed
+
+Each event may trigger one or more notification channels.
+
+```text
+OrderApproved
+       |
+       |
+  EventBridge
+       |
++------+------+------+------+
+|      |      |      |
+Email  SMS   Push  Webhook
+```
+
+The primary goal is to demonstrate:
+
+* Event-Driven Architecture
+* Fan-out Pattern
+* Serverless Architecture
+* Loose Coupling
+* Retry Mechanism
+* Observability
+* Infrastructure as Code (IaC)
+* Clean Architecture without overengineering
+
+---
+
+# Required Technology Stack
+
+## Cloud Provider
+
+AWS
+
+## Required AWS Services
+
+* API Gateway
+* AWS Lambda
+* Amazon EventBridge
+* Amazon DynamoDB
+* Amazon SQS
+* Amazon CloudWatch
+* AWS IAM
+* AWS WAF
+
+### Optional
+
+* Amazon SNS
+
+---
+
+# Programming Language
+
+Choose one language.
+
+### Preferred
+
+* TypeScript
+* Node.js
+
+### Reasons
+
+* Excellent AWS Lambda support
+* Strong typing
+* Highly relevant in the current market
+* High developer productivity
+
+---
+
+# High-Level Architecture
+
+Implement the following architecture:
+
+```text
+                    Internet
+                       |
+                    AWS WAF
+                       |
+                  API Gateway
+                       |
+            Notification API Lambda
+                       |
+             Amazon EventBridge
+                       |
+        +--------------+---------------+
+        |              |               |
+        |              |               |
+  Email Lambda    SMS Lambda    Push Lambda
+        |              |               |
+        +--------------+---------------+
+                       |
+             Delivery Status Event
+                       |
+                  Amazon DynamoDB
+                       |
+                 Amazon CloudWatch
+```
+
+---
+
+# Core Principle
+
+The system must **never** know its consumers directly.
+
+### Incorrect
+
+```text
+API Lambda
+   |
+   +--> Email Service
+   |
+   +--> SMS Service
+   |
+   +--> Push Service
+```
+
+This creates tight coupling.
+
+### Correct
+
+```text
+API Lambda
+    |
+    |
+EventBridge
+    |
+    +--> Email
+    |
+    +--> SMS
+    |
+    +--> Push
+```
+
+The producer only publishes events.
+
+Consumers independently decide whether they should process them.
+
+---
+
+# Domain Model
+
+Create the `Notification` domain.
+
+```typescript
+Notification {
+  id: string
+  eventType: string
+  recipient: string
+  channels: string[]
+  payload: any
+  status: NotificationStatus
+  createdAt: Date
+  updatedAt: Date
+}
+```
+
+## Notification Status
+
+```typescript
+enum NotificationStatus {
+  PENDING,
+  PROCESSING,
+  DELIVERED,
+  FAILED,
+  RETRYING,
+  EXPIRED
+}
+```
+
+---
+
+# REST API
+
+## Create Notification
+
+**POST**
+
+```
+/notifications
+```
+
+Request
+
+```json
+{
+  "eventType": "OrderApproved",
+  "recipient": "user@email.com",
+  "channels": [
+    "EMAIL",
+    "SMS"
+  ],
+  "payload": {
+    "orderId": "12345"
+  }
+}
+```
+
+Response
+
+```json
+{
+  "id": "uuid",
+  "status": "PENDING"
+}
+```
+
+---
+
+## Get All Notifications
+
+**GET**
+
+```
+/notifications
+```
+
+Response
+
+```json
+[
+  {
+    "id": "123",
+    "status": "DELIVERED"
+  }
+]
+```
+
+---
+
+## Get Notification by ID
+
+**GET**
+
+```
+/notifications/{id}
+```
+
+---
+
+## Cancel Notification
+
+**DELETE**
+
+```
+/notifications/{id}
+```
+
+---
+
+# Event Model
+
+Published event:
+
+```json
+{
+  "id": "uuid",
+  "type": "OrderApproved",
+  "source": "order-service",
+  "time": "2026-01-01T10:00:00Z",
+  "data": {
+    "userId": "123",
+    "orderId": "456"
+  }
+}
+```
+
+---
+
+# EventBridge Rules
+
+## Email Rule
+
+Supported events:
+
+* OrderApproved
+* UserRegistered
+* PasswordChanged
+
+Target
+
+* email-lambda
+
+---
+
+## SMS Rule
+
+Supported events:
+
+* PaymentFailed
+* PasswordChanged
+
+Target
+
+* sms-lambda
+
+---
+
+## Push Rule
+
+Supported events:
+
+* OrderApproved
+* DocumentProcessed
+
+Target
+
+* push-lambda
+
+---
+
+# Lambda Functions
+
+## notification-api-lambda
+
+### Responsibilities
+
+* Receive HTTP requests
+* Validate the request
+* Create a Notification
+* Publish an event
+
+### Must Not
+
+* Send emails
+* Know anything about SMS
+* Know anything about Push notifications
+
+---
+
+## email-lambda
+
+Consumes:
+
+```
+NotificationRequested
+```
+
+Executes:
+
+```
+sendEmail()
+```
+
+Updates notification status:
+
+* DELIVERED
+* FAILED
+
+---
+
+## sms-lambda
+
+Same responsibilities as the email consumer.
+
+---
+
+## push-lambda
+
+Same responsibilities as the email consumer.
+
+---
+
+# Persistence
+
+## DynamoDB
+
+Table
+
+```
+notifications
+```
+
+Partition Key
+
+```
+notificationId
+```
+
+Example document
+
+```json
+{
+  "id": "123",
+  "eventType": "OrderApproved",
+  "status": "DELIVERED",
+  "channel": "EMAIL",
+  "createdAt": "..."
+}
+```
+
+---
+
+# Retry Architecture
+
+Implement:
+
+```text
+Lambda
+   |
+ Failure
+   |
+SQS Retry Queue
+   |
+Retry Worker Lambda
+   |
+Process Again
+```
+
+Configure:
+
+* Maximum retries
+* Visibility timeout
+* Dead Letter Queue (DLQ)
+
+---
+
+# Clean Architecture
+
+Avoid unnecessary layers.
+
+```
+src
+├── domain
+│   ├── entities
+│   ├── enums
+│   └── errors
+│
+├── application
+│   ├── usecases
+│   └── services
+│
+├── infrastructure
+│   ├── dynamodb
+│   ├── eventbridge
+│   └── aws
+│
+├── handlers
+│   ├── api
+│   └── consumers
+│
+└── tests
+```
+
+---
+
+# SOLID Principles
+
+Apply the **Single Responsibility Principle**.
+
+### Incorrect
+
+```
+NotificationService
+
+sendEmail()
+saveDatabase()
+publishEvent()
+```
+
+### Correct
+
+```
+NotificationCreator
+EventPublisher
+NotificationRepository
+```
+
+---
+
+# Dependency Inversion
+
+Define interfaces.
+
+```typescript
+interface NotificationRepository {
+  save(notification)
+  find(id)
+}
+```
+
+Implementation
+
+```
+DynamoNotificationRepository
+```
+
+---
+
+# KISS
+
+Avoid:
+
+* Unnecessary frameworks
+* Artificial abstractions
+* Design patterns without real value
+
+---
+
+# YAGNI
+
+Do not implement:
+
+* Complex dashboards
+* Multi-tenancy
+* Billing
+* Workflow engines
+* Advanced template management
+
+---
+
+# Security
+
+Implement:
+
+* API Gateway
+* API Key authentication
+* Request validation
+* IAM Roles for Lambda
+
+Follow the **Principle of Least Privilege**.
+
+Example
+
+The Email Lambda should only have permission for:
+
+```
+dynamodb:PutItem
+```
+
+Never grant:
+
+```
+*
+```
+
+---
+
+# Terraform Structure
+
+```
+terraform
+├── main.tf
+├── variables.tf
+├── outputs.tf
+├── iam.tf
+├── lambda.tf
+├── dynamodb.tf
+├── eventbridge.tf
+├── api_gateway.tf
+├── waf.tf
+└── sqs.tf
+```
+
+---
+
+# CI/CD
+
+Create a GitHub Actions pipeline.
+
+Pipeline stages
+
+```
+Checkout
+    ↓
+Install
+    ↓
+Lint
+    ↓
+Unit Tests
+    ↓
+Integration Tests
+    ↓
+Terraform Validate
+    ↓
+Deploy
+```
+
+---
+
+# Testing
+
+## Goal
+
+Achieve **100% code coverage**.
+
+Framework
+
+* Jest
+
+### Unit Tests
+
+Test:
+
+* Domain
+* Notification creation
+
+Scenarios:
+
+* Valid event
+* Empty event
+* Invalid channel
+
+### Use Cases
+
+Test:
+
+* CreateNotification
+* PublishEvent
+* UpdateStatus
+
+### Lambda
+
+Mock AWS services:
+
+* DynamoDB
+* EventBridge
+
+### Integration Tests
+
+Use:
+
+* LocalStack
+
+Test the complete flow:
+
+```text
+POST /notifications
+        |
+API Gateway
+        |
+Lambda
+        |
+EventBridge
+        |
+Consumer Lambda
+        |
+DynamoDB
+```
+
+---
+
+# Observability
+
+## CloudWatch Logs
+
+Create logs for:
+
+* notification-created
+* event-published
+* delivery-success
+* delivery-failed
+
+## CloudWatch Metrics
+
+* NotificationsCreated
+* NotificationsDelivered
+* NotificationsFailed
+* RetryCount
+
+---
+
+# Documentation
+
+## README.md Requirements
+
+The `README.md` must include:
+
+* Architecture overview
+* Architecture diagram
+* Local development setup
+* Testing instructions
+* Deployment guide
+* API usage examples
+* Architectural decisions
+* Acceptance criteria
+
+---
+
+# Definition of Done
+
+The project is considered complete when all of the following criteria are met:
+
+* ✅ API receives notifications
+* ✅ Events are published to Amazon EventBridge
+* ✅ Multiple consumers receive the same event
+* ✅ Email, SMS, and Push notification services work independently
+* ✅ Failures trigger automatic retries
+* ✅ Dead Letter Queue (DLQ) is fully operational
+* ✅ Notification history is stored in DynamoDB
+* ✅ CloudWatch logs are available for all services
+* ✅ Infrastructure is fully provisioned using Terraform
+* ✅ Test suite achieves 100% code coverage
+* ✅ Code follows SOLID, KISS, and YAGNI principles
+* ✅ The README enables another developer to build, run, test, and deploy the project without additional guidance
+
+---
+
+# Recommended Implementation Order
+
+The implementation must follow this sequence exactly.
+
+## Phase 1 – Project Setup
+
+* Node.js
+* TypeScript
+* Jest
+* ESLint
+* Prettier
+
+## Phase 2 – Domain Layer
+
+* Entities
+* Enums
+* Domain Errors
+
+## Phase 3 – API Lambda
+
+* POST
+* GET
+* DELETE
+
+## Phase 4 – DynamoDB Repository
+
+Implement the persistence layer using Amazon DynamoDB.
+
+## Phase 5 – EventBridge Publisher
+
+Implement event publishing through Amazon EventBridge.
+
+## Phase 6 – Consumer Lambdas
+
+Create independent Lambda functions for:
+
+* Email notifications
+* SMS notifications
+* Push notifications
+
+## Phase 7 – Retry and Dead Letter Queue
+
+Implement:
+
+* Amazon SQS Retry Queue
+* Dead Letter Queue (DLQ)
+
+## Phase 8 – Infrastructure as Code
+
+Provision the complete AWS infrastructure using Terraform.
+
+## Phase 9 – Observability
+
+Implement:
+
+* CloudWatch Logs
+* CloudWatch Metrics
+* Error monitoring
+
+## Phase 10 – Testing
+
+Implement:
+
+* Unit tests
+* Integration tests
+* 100% code coverage
+
+## Phase 11 – Documentation
+
+Complete the project documentation, including:
+
+* Architecture overview
+* Architecture diagram
+* Local development setup
+* Testing instructions
+* Deployment guide
+* API examples
+* Architectural decisions
+* Acceptance criteria

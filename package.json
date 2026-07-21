@@ -1,0 +1,59 @@
+{
+  "name": "event-driven-notification-platform",
+  "version": "1.0.0",
+  "description": "Event-driven notification platform on AWS serverless",
+  "main": "dist/index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist coverage",
+    "dev": "ts-node src/handlers/api/notification-api-lambda.ts",
+    "lint": "eslint . --ext .ts",
+    "format": "prettier --write .",
+    "test": "jest --coverage --testPathIgnorePatterns=/src/tests/e2e/",
+    "test:watch": "jest --watch",
+    "test:integration": "jest --config jest.config.ts --testPathPattern=integration",
+    "test:e2e": "jest --config jest.config.ts --runInBand --testPathPattern=e2e",
+    "localstack:up": "docker compose -f docker-compose.localstack.yml --profile e2e-localstack up -d",
+    "localstack:down": "docker compose -f docker-compose.localstack.yml --profile e2e-localstack down --remove-orphans",
+    "localstack:health": "curl -fsS http://localhost:4566/_localstack/health",
+    "test:e2e:localstack": "bash ./scripts/run-e2e-localstack.sh",
+    "bootstrap:local": "bash ./scripts/bootstrap-local-infra.sh",
+    "destroy:local": "bash ./scripts/destroy-local-infra.sh"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luizcurti/event-driven-notification-platform.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/luizcurti/event-driven-notification-platform/issues"
+  },
+  "homepage": "https://github.com/luizcurti/event-driven-notification-platform#readme",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1090.0",
+    "@aws-sdk/client-eventbridge": "^3.1090.0",
+    "@aws-sdk/client-sqs": "^3.1090.0",
+    "@aws-sdk/lib-dynamodb": "^3.1090.0",
+    "uuid": "^14.0.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.162",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^26.1.1",
+    "@typescript-eslint/eslint-plugin": "^8.64.0",
+    "@typescript-eslint/parser": "^8.64.0",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.6",
+    "jest": "^29.7.0",
+    "prettier": "^3.9.5",
+    "ts-jest": "^29.4.11",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}
