@@ -1,6 +1,6 @@
 import { EventBridgeEvent } from "aws-lambda";
 import { ProcessChannelNotificationUseCase } from "../../application/usecases/process-channel-notification";
-import { Channel } from "../../domain/enums/channel";
+import { Channel } from "../../domain/enums";
 import { processConsumerEvent } from "../../handlers/consumers/process-consumer-event";
 
 describe("processConsumerEvent", () => {

@@ -1,5 +1,5 @@
 import { EventBridgeEvent } from "aws-lambda";
-import { Channel } from "../../domain/enums/channel";
+import { Channel } from "../../domain/enums";
 import { processConsumerEvent } from "../../handlers/consumers/process-consumer-event";
 
 const processConsumerEventMock = jest.fn();
@@ -15,8 +15,8 @@ describe("consumer lambdas", () => {
   });
 
   it("email lambda delegates to process helper", async () => {
-    const { handler } = await import("../../handlers/consumers/email-lambda");
-    await handler({ detail: {} } as EventBridgeEvent<string, any>);
+    const { emailHandler } = await import("../../handlers/consumers/channel-lambdas");
+    await emailHandler({ detail: {} } as EventBridgeEvent<string, any>);
     expect(processConsumerEvent).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
@@ -25,8 +25,8 @@ describe("consumer lambdas", () => {
   });
 
   it("sms lambda delegates to process helper", async () => {
-    const { handler } = await import("../../handlers/consumers/sms-lambda");
-    await handler({ detail: {} } as EventBridgeEvent<string, any>);
+    const { smsHandler } = await import("../../handlers/consumers/channel-lambdas");
+    await smsHandler({ detail: {} } as EventBridgeEvent<string, any>);
     expect(processConsumerEvent).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),
@@ -35,8 +35,8 @@ describe("consumer lambdas", () => {
   });
 
   it("push lambda delegates to process helper", async () => {
-    const { handler } = await import("../../handlers/consumers/push-lambda");
-    await handler({ detail: {} } as EventBridgeEvent<string, any>);
+    const { pushHandler } = await import("../../handlers/consumers/channel-lambdas");
+    await pushHandler({ detail: {} } as EventBridgeEvent<string, any>);
     expect(processConsumerEvent).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),

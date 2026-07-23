@@ -1,34 +1,17 @@
-import { ChannelSender } from "../../application/ports/channel-sender";
-import { Channel } from "../../domain/enums/channel";
+import { ChannelSender } from "../../application/ports";
+import { Channel } from "../../domain/enums";
 
-class BaseSender implements ChannelSender {
-  constructor(public readonly channel: Channel) {}
-
-  async send(input: {
-    notificationId: string;
-    recipient: string;
-    payload: Record<string, unknown>;
-  }): Promise<void> {
-    if (input.payload.forceFail === true) {
-      throw new Error(`forced-failure-${this.channel.toLowerCase()}`);
-    }
-  }
-}
-
-export class EmailSender extends BaseSender {
-  constructor() {
-    super(Channel.EMAIL);
-  }
-}
-
-export class SmsSender extends BaseSender {
-  constructor() {
-    super(Channel.SMS);
-  }
-}
-
-export class PushSender extends BaseSender {
-  constructor() {
-    super(Channel.PUSH);
-  }
+export function createChannelSender(channel: Channel): ChannelSender {
+  return {
+    channel,
+    async send(input: {
+      notificationId: string;
+      recipient: string;
+      payload: Record<string, unknown>;
+    }): Promise<void> {
+      if (input.payload.forceFail === true) {
+        throw new Error(`forced-failure-${channel.toLowerCase()}`);
+      }
+    },
+  };
 }

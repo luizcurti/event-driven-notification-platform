@@ -1,5 +1,5 @@
 import { PutEventsCommand } from "@aws-sdk/client-eventbridge";
-import { EventPayload, EventPublisher } from "../../application/ports/event-publisher";
+import { EventPayload, EventPublisher } from "../../application/ports";
 import { eventBridgeClient } from "../aws/clients";
 import { environment } from "../aws/environment";
 

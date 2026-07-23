@@ -1,5 +1,5 @@
 import { GetCommand, PutCommand, ScanCommand } from "@aws-sdk/lib-dynamodb";
-import { NotificationRepository } from "../../application/ports/notification-repository";
+import { NotificationRepository } from "../../application/ports";
 import { NotificationProps } from "../../domain/entities/notification";
 import { documentClient } from "../aws/clients";
 import { environment } from "../aws/environment";

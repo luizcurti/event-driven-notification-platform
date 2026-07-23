@@ -1,9 +1,6 @@
 import { Notification } from "../../domain/entities/notification";
-import { Channel } from "../../domain/enums/channel";
-import { Logger } from "../ports/logger";
-import { NotificationRepository } from "../ports/notification-repository";
-import { RetryQueue } from "../ports/retry-queue";
-import { ChannelSender } from "../ports/channel-sender";
+import { Channel } from "../../domain/enums";
+import { ChannelSender, Logger, NotificationRepository, RetryQueue } from "../ports";
 
 interface ProcessChannelInput {
   notificationId: string;

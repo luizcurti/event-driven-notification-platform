@@ -1,6 +1,5 @@
-import { Channel } from "../../domain/enums/channel";
-import { EventPublisher } from "../ports/event-publisher";
-import { Logger } from "../ports/logger";
+import { Channel } from "../../domain/enums";
+import { EventPublisher, Logger } from "../ports";
 
 interface RetryInput {
   notificationId: string;

@@ -1,6 +1,8 @@
 import { CancelNotificationUseCase } from "../../application/usecases/cancel-notification";
-import { GetNotificationUseCase } from "../../application/usecases/get-notification";
-import { ListNotificationsUseCase } from "../../application/usecases/list-notifications";
+import {
+  GetNotificationUseCase,
+  ListNotificationsUseCase,
+} from "../../application/usecases/query-notifications";
 import { Notification } from "../../domain/entities/notification";
 
 class InMemoryRepository {

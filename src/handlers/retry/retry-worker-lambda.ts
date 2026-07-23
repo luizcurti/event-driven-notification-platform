@@ -1,6 +1,6 @@
 import { SQSEvent } from "aws-lambda";
 import { RetryNotificationUseCase } from "../../application/usecases/retry-notification";
-import { Channel } from "../../domain/enums/channel";
+import { Channel } from "../../domain/enums";
 import { ConsoleLogger } from "../../infrastructure/aws/console-logger";
 import { EventBridgePublisher } from "../../infrastructure/eventbridge/eventbridge-publisher";
 

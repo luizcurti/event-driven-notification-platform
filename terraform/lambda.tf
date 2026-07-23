@@ -22,7 +22,7 @@ resource "aws_lambda_function" "email" {
   function_name = "${var.project_name}-email"
   role          = aws_iam_role.lambda_role.arn
   runtime       = var.use_localstack ? "nodejs20.x" : "nodejs22.x"
-  handler       = "handlers/consumers/email-lambda.handler"
+  handler       = "handlers/consumers/channel-lambdas.emailHandler"
   filename      = var.lambda_zip_path
   timeout       = 30
 
@@ -40,7 +40,7 @@ resource "aws_lambda_function" "sms" {
   function_name = "${var.project_name}-sms"
   role          = aws_iam_role.lambda_role.arn
   runtime       = var.use_localstack ? "nodejs20.x" : "nodejs22.x"
-  handler       = "handlers/consumers/sms-lambda.handler"
+  handler       = "handlers/consumers/channel-lambdas.smsHandler"
   filename      = var.lambda_zip_path
   timeout       = 30
 
@@ -58,7 +58,7 @@ resource "aws_lambda_function" "push" {
   function_name = "${var.project_name}-push"
   role          = aws_iam_role.lambda_role.arn
   runtime       = var.use_localstack ? "nodejs20.x" : "nodejs22.x"
-  handler       = "handlers/consumers/push-lambda.handler"
+  handler       = "handlers/consumers/channel-lambdas.pushHandler"
   filename      = var.lambda_zip_path
   timeout       = 30
 

@@ -71,6 +71,8 @@ Body:
 }
 ```
 
+> Note: `channels` filters which of the already-triggered consumer Lambdas will process the notification. It does not force EventBridge to invoke a Lambda outside its configured rule — see [EventBridge Rules](#eventbridge-rules).
+
 Response 201:
 
 ```json
@@ -91,6 +93,21 @@ GET /notifications/{id}
 ### Cancel Notification
 
 DELETE /notifications/{id}
+
+## EventBridge Rules
+
+Routing to each consumer Lambda is decided by **EventBridge rules matching `detail-type` (the notification's `eventType`)**, not by the `channels` field sent in the request. The `channels` field is only a secondary filter applied **inside** a consumer Lambda that has already been invoked (see [process-consumer-event.ts](src/handlers/consumers/process-consumer-event.ts)): if the Lambda's channel is not present in `channels`, it simply skips processing.
+
+| Event type            | email-lambda | sms-lambda | push-lambda |
+| ---------------------- | :-----------: | :--------: | :----------: |
+| OrderApproved           | ✅            |            | ✅           |
+| UserRegistered          | ✅            |            |              |
+| PasswordChanged         | ✅            | ✅         |              |
+| PaymentFailed           |               | ✅         |              |
+| DocumentProcessed       |               |            | ✅           |
+| NotificationRequested (retry) | ✅      | ✅         | ✅           |
+
+Practical implication: requesting `"eventType": "OrderApproved"` with `"channels": ["EMAIL", "SMS"]` will **not** deliver via SMS, because the `sms_rule` in [terraform/eventbridge.tf](terraform/eventbridge.tf) does not subscribe to `OrderApproved`. Only `EMAIL` and `PUSH` are eligible for that event type. To test SMS delivery, use an event type the SMS rule listens to, e.g. `PaymentFailed` or `PasswordChanged`.
 
 ## Events
 
@@ -247,6 +264,17 @@ Recommended metrics:
 - NotificationsFailed
 - RetryCount
 
+### Inspecting logs locally (LocalStack)
+
+The `docker-compose.localstack.yml` `SERVICES` list does not include the `logs` (CloudWatch Logs) service, so `aws logs ...` against LocalStack returns `Service 'logs' is not enabled`. To inspect a Lambda's structured logs locally, read them directly from its execution container instead:
+
+```bash
+docker ps --format '{{.Names}}' | grep 'localstack-lambda'
+docker logs <container-name> | grep '"level"'
+```
+
+Each Lambda (`notification-api`, `email`, `sms`, `push`, `retry-worker`) runs in its own container named `event-driven-localstack-lambda-<function-name>-<hash>`.
+
 ## CI/CD
 
 GitHub Actions pipeline in .github/workflows/ci-cd.yml with stages:
@@ -262,3 +290,4 @@ Current test suite status:
 - 13 suites (unit/integration)
 - 53 tests
 - global coverage: 100% statements, 100% branches, 100% functions, 100% lines
+- consolidated modules to avoid unnecessary file fragmentation: `application/ports` (index), `domain/enums` (index), `domain/errors` (index), `application/usecases/query-notifications.ts` (get + list), and `handlers/consumers/channel-lambdas.ts` (email/sms/push handlers)

@@ -1,8 +1,6 @@
 import { Notification, type CreateNotificationInput } from "../../domain/entities/notification";
-import { NotificationStatus } from "../../domain/enums/notification-status";
-import { EventPublisher } from "../ports/event-publisher";
-import { Logger } from "../ports/logger";
-import { NotificationRepository } from "../ports/notification-repository";
+import { NotificationStatus } from "../../domain/enums";
+import { EventPublisher, Logger, NotificationRepository } from "../ports";
 
 interface CreateNotificationResult {
   id: string;

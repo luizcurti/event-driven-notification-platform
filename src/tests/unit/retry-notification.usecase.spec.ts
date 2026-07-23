@@ -1,5 +1,5 @@
 import { RetryNotificationUseCase } from "../../application/usecases/retry-notification";
-import { Channel } from "../../domain/enums/channel";
+import { Channel } from "../../domain/enums";
 
 class StubPublisher {
   public count = 0;

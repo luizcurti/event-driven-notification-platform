@@ -1,5 +1,5 @@
 import { SendMessageCommand } from "@aws-sdk/client-sqs";
-import { RetryQueue } from "../../application/ports/retry-queue";
+import { RetryQueue } from "../../application/ports";
 import { environment } from "./environment";
 import { sqsClient } from "./clients";
 

@@ -1,10 +1,11 @@
 import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 import { CancelNotificationUseCase } from "../../application/usecases/cancel-notification";
 import { CreateNotificationUseCase } from "../../application/usecases/create-notification";
-import { GetNotificationUseCase } from "../../application/usecases/get-notification";
-import { ListNotificationsUseCase } from "../../application/usecases/list-notifications";
-import { DomainError } from "../../domain/errors/domain-error";
-import { NotFoundError } from "../../domain/errors/not-found-error";
+import {
+  GetNotificationUseCase,
+  ListNotificationsUseCase,
+} from "../../application/usecases/query-notifications";
+import { DomainError, NotFoundError } from "../../domain/errors";
 import { ConsoleLogger } from "../../infrastructure/aws/console-logger";
 import { DynamoNotificationRepository } from "../../infrastructure/dynamodb/dynamo-notification-repository";
 import { EventBridgePublisher } from "../../infrastructure/eventbridge/eventbridge-publisher";

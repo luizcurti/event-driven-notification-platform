@@ -1,6 +1,5 @@
 import { APIGatewayProxyEvent } from "aws-lambda";
-import { DomainError } from "../../domain/errors/domain-error";
-import { NotFoundError } from "../../domain/errors/not-found-error";
+import { DomainError, NotFoundError } from "../../domain/errors";
 
 const createExecute = jest.fn();
 const listExecute = jest.fn();
@@ -12,11 +11,8 @@ jest.mock("../../application/usecases/create-notification", () => ({
   CreateNotificationUseCase: jest.fn().mockImplementation(() => ({ execute: createExecute })),
 }));
 
-jest.mock("../../application/usecases/list-notifications", () => ({
+jest.mock("../../application/usecases/query-notifications", () => ({
   ListNotificationsUseCase: jest.fn().mockImplementation(() => ({ execute: listExecute })),
-}));
-
-jest.mock("../../application/usecases/get-notification", () => ({
   GetNotificationUseCase: jest.fn().mockImplementation(() => ({ execute: getExecute })),
 }));
 

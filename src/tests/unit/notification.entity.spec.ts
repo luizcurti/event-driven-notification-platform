@@ -1,5 +1,5 @@
 import { Notification } from "../../domain/entities/notification";
-import { NotificationStatus } from "../../domain/enums/notification-status";
+import { NotificationStatus } from "../../domain/enums";
 
 describe("Notification entity", () => {
   it("creates a valid notification", () => {

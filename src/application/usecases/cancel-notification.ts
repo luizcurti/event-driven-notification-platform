@@ -1,7 +1,6 @@
 import { Notification } from "../../domain/entities/notification";
-import { NotFoundError } from "../../domain/errors/not-found-error";
-import { Logger } from "../ports/logger";
-import { NotificationRepository } from "../ports/notification-repository";
+import { NotFoundError } from "../../domain/errors";
+import { Logger, NotificationRepository } from "../ports";
 
 export class CancelNotificationUseCase {
   constructor(

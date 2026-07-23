@@ -1,5 +1,5 @@
-import { NotificationStatus } from "../../domain/enums/notification-status";
-import { EmailSender, PushSender, SmsSender } from "../../infrastructure/aws/channel-senders";
+import { Channel, NotificationStatus } from "../../domain/enums";
+import { createChannelSender } from "../../infrastructure/aws/channel-senders";
 import { ConsoleLogger } from "../../infrastructure/aws/console-logger";
 
 jest.mock("../../infrastructure/aws/clients", () => ({
@@ -30,19 +30,19 @@ describe("aws adapters", () => {
 
   it("channel senders succeed without forceFail", async () => {
     await expect(
-      new EmailSender().send({ notificationId: "1", recipient: "a", payload: {} }),
+      createChannelSender(Channel.EMAIL).send({ notificationId: "1", recipient: "a", payload: {} }),
     ).resolves.toBeUndefined();
     await expect(
-      new SmsSender().send({ notificationId: "1", recipient: "a", payload: {} }),
+      createChannelSender(Channel.SMS).send({ notificationId: "1", recipient: "a", payload: {} }),
     ).resolves.toBeUndefined();
     await expect(
-      new PushSender().send({ notificationId: "1", recipient: "a", payload: {} }),
+      createChannelSender(Channel.PUSH).send({ notificationId: "1", recipient: "a", payload: {} }),
     ).resolves.toBeUndefined();
   });
 
   it("channel senders fail with forceFail", async () => {
     await expect(
-      new EmailSender().send({
+      createChannelSender(Channel.EMAIL).send({
         notificationId: "1",
         recipient: "a",
         payload: { forceFail: true },

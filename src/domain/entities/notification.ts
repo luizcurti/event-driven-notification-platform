@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { ALLOWED_CHANNELS, Channel } from "../enums/channel";
-import { NotificationStatus } from "../enums/notification-status";
-import { DomainError } from "../errors/domain-error";
+import { ALLOWED_CHANNELS, Channel, NotificationStatus } from "../enums";
+import { DomainError } from "../errors";
 
 export interface NotificationProps {
   id: string;

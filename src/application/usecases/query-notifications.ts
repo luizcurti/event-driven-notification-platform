@@ -1,5 +1,5 @@
-import { NotFoundError } from "../../domain/errors/not-found-error";
-import { NotificationRepository } from "../ports/notification-repository";
+import { NotFoundError } from "../../domain/errors";
+import { NotificationRepository } from "../ports";
 
 export class GetNotificationUseCase {
   constructor(private readonly repository: NotificationRepository) {}
@@ -12,5 +12,13 @@ export class GetNotificationUseCase {
     }
 
     return notification;
+  }
+}
+
+export class ListNotificationsUseCase {
+  constructor(private readonly repository: NotificationRepository) {}
+
+  async execute() {
+    return this.repository.findAll();
   }
 }

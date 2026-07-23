@@ -1,6 +1,6 @@
 import { ProcessChannelNotificationUseCase } from "../../application/usecases/process-channel-notification";
 import { Notification, NotificationProps } from "../../domain/entities/notification";
-import { Channel } from "../../domain/enums/channel";
+import { Channel } from "../../domain/enums";
 
 class InMemoryRepository {
   public items: NotificationProps[] = [];
