@@ -1,6 +1,6 @@
 import { ProcessChannelNotificationUseCase } from "../../application/usecases/process-channel-notification";
-import { Notification, NotificationProps } from "../../domain/entities/notification";
-import { Channel } from "../../domain/enums";
+import { ChannelState, Notification, NotificationProps } from "../../domain/entities/notification";
+import { Channel, NotificationStatus } from "../../domain/enums";
 
 class InMemoryRepository {
   public items: NotificationProps[] = [];
@@ -8,6 +8,14 @@ class InMemoryRepository {
   async save(notification: NotificationProps): Promise<void> {
     this.items = this.items.filter((item) => item.id !== notification.id);
     this.items.push(notification);
+  }
+
+  async updateChannelState(id: string, channel: Channel, state: ChannelState): Promise<void> {
+    const item = this.items.find((current) => current.id === id);
+    if (!item) {
+      return;
+    }
+    item.channelStates = { ...item.channelStates, [channel]: state };
   }
 
   async findById(id: string): Promise<NotificationProps | null> {
@@ -51,7 +59,7 @@ class StubLogger {
 }
 
 describe("ProcessChannelNotificationUseCase", () => {
-  it("marks as delivered when sender succeeds", async () => {
+  it("marks the channel as delivered when sender succeeds", async () => {
     const repository = new InMemoryRepository();
     const created = Notification.create({
       eventType: "OrderApproved",
@@ -76,7 +84,38 @@ describe("ProcessChannelNotificationUseCase", () => {
     });
 
     const updated = await repository.findById(created.id);
-    expect(updated?.status).toBe("DELIVERED");
+    expect(new Notification(updated!).status).toBe("DELIVERED");
+  });
+
+  it("does not affect other channels' state", async () => {
+    const repository = new InMemoryRepository();
+    const created = Notification.create({
+      eventType: "OrderApproved",
+      recipient: "user@email.com",
+      channels: ["EMAIL", "PUSH"],
+      payload: {},
+    }).toJSON();
+    await repository.save(created);
+
+    const useCase = new ProcessChannelNotificationUseCase(
+      repository,
+      new SuccessSender(),
+      new StubRetryQueue(),
+      new StubLogger(),
+    );
+
+    await useCase.execute({
+      notificationId: created.id,
+      recipient: created.recipient,
+      payload: created.payload,
+      channel: Channel.EMAIL,
+    });
+
+    const updated = await repository.findById(created.id);
+    const notification = new Notification(updated!);
+    expect(notification.channelState(Channel.EMAIL).status).toBe("DELIVERED");
+    expect(notification.channelState(Channel.PUSH).status).toBe(NotificationStatus.PENDING);
+    expect(notification.status).toBe(NotificationStatus.PENDING);
   });
 
   it("enqueues retry when sender fails", async () => {
@@ -105,7 +144,7 @@ describe("ProcessChannelNotificationUseCase", () => {
     });
 
     const updated = await repository.findById(created.id);
-    expect(updated?.status).toBe("RETRYING");
+    expect(new Notification(updated!).status).toBe("RETRYING");
     expect(retryQueue.enqueued).toBe(true);
   });
 
@@ -154,6 +193,6 @@ describe("ProcessChannelNotificationUseCase", () => {
     });
 
     const updated = await repository.findById(created.id);
-    expect(updated?.status).toBe("RETRYING");
+    expect(new Notification(updated!).status).toBe("RETRYING");
   });
 });

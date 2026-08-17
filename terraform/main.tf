@@ -20,9 +20,9 @@ provider "aws" {
   skip_requesting_account_id  = var.use_localstack
 
   endpoints {
-    apigateway = var.use_localstack ? var.localstack_endpoint : null
-    cloudwatch = var.use_localstack ? var.localstack_endpoint : null
-    dynamodb   = var.use_localstack ? var.localstack_endpoint : null
+    apigateway  = var.use_localstack ? var.localstack_endpoint : null
+    cloudwatch  = var.use_localstack ? var.localstack_endpoint : null
+    dynamodb    = var.use_localstack ? var.localstack_endpoint : null
     eventbridge = var.use_localstack ? var.localstack_endpoint : null
     iam         = var.use_localstack ? var.localstack_endpoint : null
     lambda      = var.use_localstack ? var.localstack_endpoint : null

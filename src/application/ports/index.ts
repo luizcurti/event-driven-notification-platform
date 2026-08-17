@@ -1,4 +1,4 @@
-import { NotificationProps } from "../../domain/entities/notification";
+import { ChannelState, NotificationProps } from "../../domain/entities/notification";
 import { Channel } from "../../domain/enums";
 
 export interface ChannelSender {
@@ -29,6 +29,7 @@ export interface Logger {
 
 export interface NotificationRepository {
   save(notification: NotificationProps): Promise<void>;
+  updateChannelState(id: string, channel: Channel, state: ChannelState): Promise<void>;
   findById(id: string): Promise<NotificationProps | null>;
   findAll(): Promise<NotificationProps[]>;
 }

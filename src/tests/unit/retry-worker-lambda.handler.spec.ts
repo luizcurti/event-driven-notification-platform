@@ -19,6 +19,7 @@ describe("retry-worker-lambda", () => {
     const event = {
       Records: [
         {
+          messageId: "msg-1",
           body: JSON.stringify({
             notificationId: "1",
             recipient: "a@email.com",
@@ -28,6 +29,7 @@ describe("retry-worker-lambda", () => {
           }),
         },
         {
+          messageId: "msg-2",
           body: JSON.stringify({
             notificationId: "2",
             recipient: "b@email.com",
@@ -39,7 +41,7 @@ describe("retry-worker-lambda", () => {
       ],
     } as unknown as SQSEvent;
 
-    await handler(event);
+    const result = await handler(event);
 
     expect(executeMock).toHaveBeenCalledTimes(2);
     expect(executeMock).toHaveBeenNthCalledWith(1, {
@@ -49,5 +51,44 @@ describe("retry-worker-lambda", () => {
       channel: "EMAIL",
       retryCount: 1,
     });
+    expect(result).toEqual({ batchItemFailures: [] });
+  });
+
+  it("reports only the failing records as batch item failures", async () => {
+    executeMock.mockImplementationOnce(async () => {
+      throw new Error("boom");
+    });
+    executeMock.mockImplementationOnce(async () => undefined);
+
+    const { handler } = await import("../../handlers/retry/retry-worker-lambda");
+
+    const event = {
+      Records: [
+        {
+          messageId: "msg-fail",
+          body: JSON.stringify({
+            notificationId: "1",
+            recipient: "a@email.com",
+            payload: {},
+            channel: "EMAIL",
+            retryCount: 1,
+          }),
+        },
+        {
+          messageId: "msg-ok",
+          body: JSON.stringify({
+            notificationId: "2",
+            recipient: "b@email.com",
+            payload: {},
+            channel: "SMS",
+            retryCount: 1,
+          }),
+        },
+      ],
+    } as unknown as SQSEvent;
+
+    const result = await handler(event);
+
+    expect(result).toEqual({ batchItemFailures: [{ itemIdentifier: "msg-fail" }] });
   });
 });

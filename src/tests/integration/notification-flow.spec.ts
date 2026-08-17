@@ -1,6 +1,6 @@
 import { CreateNotificationUseCase } from "../../application/usecases/create-notification";
 import { ProcessChannelNotificationUseCase } from "../../application/usecases/process-channel-notification";
-import { NotificationProps } from "../../domain/entities/notification";
+import { ChannelState, Notification, NotificationProps } from "../../domain/entities/notification";
 import { Channel } from "../../domain/enums";
 
 class InMemoryRepository {
@@ -9,6 +9,14 @@ class InMemoryRepository {
   async save(notification: NotificationProps): Promise<void> {
     this.items = this.items.filter((item) => item.id !== notification.id);
     this.items.push(notification);
+  }
+
+  async updateChannelState(id: string, channel: Channel, state: ChannelState): Promise<void> {
+    const item = this.items.find((current) => current.id === id);
+    if (!item) {
+      return;
+    }
+    item.channelStates = { ...item.channelStates, [channel]: state };
   }
 
   async findById(id: string): Promise<NotificationProps | null> {
@@ -67,6 +75,6 @@ describe("Notification flow integration", () => {
     });
 
     const delivered = await repository.findById(created.id);
-    expect(delivered?.status).toBe("DELIVERED");
+    expect(new Notification(delivered!).status).toBe("DELIVERED");
   });
 });

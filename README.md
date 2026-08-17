@@ -41,7 +41,7 @@ flowchart TD
 - Fan-out pattern: EventBridge routes events to multiple destinations.
 - SOLID: responsibilities split across use cases, repository, and publisher.
 - KISS and YAGNI: no artificial layers or unnecessary features.
-- Least privilege: IAM permissions scoped to only required resources.
+- Least privilege: each Lambda (`notification-api`, `email`, `sms`, `push`, `retry-worker`) has its own dedicated IAM role in [terraform/iam.tf](terraform/iam.tf), scoped only to the actions that function actually calls (e.g. `retry-worker` gets `dynamodb:UpdateItem` but never `PutItem`/`Scan`, and never touches the DLQ directly).
 
 ## Project Structure
 
@@ -90,9 +90,34 @@ GET /notifications
 
 GET /notifications/{id}
 
+Response 200:
+
+```json
+{
+  "id": "uuid",
+  "eventType": "OrderApproved",
+  "recipient": "user@email.com",
+  "channels": ["EMAIL", "SMS"],
+  "payload": { "orderId": "12345" },
+  "status": "PENDING",
+  "retryCount": 0,
+  "canceledAt": null,
+  "channelStates": {
+    "EMAIL": { "status": "DELIVERED", "retryCount": 0 },
+    "SMS": { "status": "PENDING", "retryCount": 0 }
+  },
+  "createdAt": "2026-01-01T10:00:00.000Z",
+  "updatedAt": "2026-01-01T10:00:01.000Z"
+}
+```
+
+`channelStates` tracks each requested channel independently, so a partial fan-out is visible instead of being flattened into one shared status: in the example above `EMAIL` was delivered while `SMS` is still `PENDING` (never routed, since `OrderApproved` isn't in the `sms_rule` — see [EventBridge Rules](#eventbridge-rules)). The top-level `status` is an aggregate derived from `channelStates`, in this priority: `RETRYING` > `PROCESSING` > `FAILED` > `DELIVERED` (only once every channel is `DELIVERED`) > `PENDING`. `retryCount` is the highest retry count across all channels.
+
 ### Cancel Notification
 
 DELETE /notifications/{id}
+
+Rejects the cancellation with `400` if the notification was already `DELIVERED` or is already `CANCELED`; otherwise returns `200` with the canceled notification.
 
 ## EventBridge Rules
 
@@ -124,12 +149,28 @@ Event published to EventBridge by the API:
     "eventType": "OrderApproved",
     "recipient": "user@email.com",
     "channels": ["EMAIL", "SMS"],
-    "payload": {
-      "orderId": "12345"
-    }
+    "payload": { "orderId": "12345" },
+    "channelStates": {
+      "EMAIL": { "status": "PENDING", "retryCount": 0 },
+      "SMS": { "status": "PENDING", "retryCount": 0 }
+    },
+    "canceledAt": null,
+    "status": "PENDING",
+    "retryCount": 0
   }
 }
 ```
+
+## Retry & Failure Lifecycle
+
+On a channel send failure, [process-channel-notification.ts](src/application/usecases/process-channel-notification.ts) marks that channel `RETRYING` and enqueues it to the SQS retry queue. [retry-worker-lambda.ts](src/handlers/retry/retry-worker-lambda.ts) consumes the queue and republishes a `NotificationRequested` event (re-triggering only the failed channel) as long as `retryCount <= MAX_RETRIES`. Once the budget is exhausted, [retry-notification.ts](src/application/usecases/retry-notification.ts) marks that channel `FAILED` instead of republishing, so the notification always reaches a terminal state instead of sitting in `RETRYING` indefinitely.
+
+Two independent failure paths exist:
+
+- **Business retry limit** (`MAX_RETRIES`, default 3): governs how many times a channel is *retried*. Exhausting it marks the channel `FAILED` — no message loss, no SQS involvement.
+- **SQS redrive policy** (`max_retries` on `aws_sqs_queue.retry_queue` in [terraform/sqs.tf](terraform/sqs.tf)): governs how many times SQS redelivers a *single message* to `retry-worker-lambda` if the Lambda invocation itself fails (e.g. a transient AWS/network error). After that many failed deliveries the message goes to the DLQ (`retry-dlq`), which is a genuine, exercised safety net for infrastructure-level failures — not a dead end for exhausted business retries.
+
+The SQS event source mapping uses `ReportBatchItemFailures` ([terraform/lambda.tf](terraform/lambda.tf)), so if one message in a batch fails, only that message is redelivered — the rest of the batch isn't reprocessed.
 
 ## Local Execution
 
@@ -281,13 +322,13 @@ GitHub Actions pipeline in .github/workflows/ci-cd.yml with stages:
 
 - validate job: lint, unit/integration tests, build, and terraform validate
 - e2e-localstack job: starts dedicated LocalStack profile and runs real E2E
-- deploy job (main): runs only after validate + e2e-localstack
+- deploy job (main): runs only after validate + e2e-localstack passes; today this is a CI-only gate (`terraform validate` again) and does **not** run `terraform apply` against real AWS — there's no AWS credentials step in the workflow. Promoting to a real environment is a separate, deliberately manual/CD step outside this pipeline.
 
 ## Test Coverage
 
 Current test suite status:
 
 - 13 suites (unit/integration)
-- 53 tests
+- 61 tests
 - global coverage: 100% statements, 100% branches, 100% functions, 100% lines
 - consolidated modules to avoid unnecessary file fragmentation: `application/ports` (index), `domain/enums` (index), `domain/errors` (index), `application/usecases/query-notifications.ts` (get + list), and `handlers/consumers/channel-lambdas.ts` (email/sms/push handlers)

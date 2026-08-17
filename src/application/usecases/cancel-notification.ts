@@ -1,5 +1,6 @@
 import { Notification } from "../../domain/entities/notification";
-import { NotFoundError } from "../../domain/errors";
+import { NotificationStatus } from "../../domain/enums";
+import { DomainError, NotFoundError } from "../../domain/errors";
 import { Logger, NotificationRepository } from "../ports";
 
 export class CancelNotificationUseCase {
@@ -15,7 +16,17 @@ export class CancelNotificationUseCase {
       throw new NotFoundError(`notification ${id} not found`);
     }
 
-    const canceled = new Notification(current).cancel().toJSON();
+    const notification = new Notification(current);
+
+    if (notification.status === NotificationStatus.CANCELED) {
+      throw new DomainError(`notification ${id} is already canceled`);
+    }
+
+    if (notification.status === NotificationStatus.DELIVERED) {
+      throw new DomainError(`notification ${id} was already delivered and cannot be canceled`);
+    }
+
+    const canceled = notification.cancel().toJSON();
     await this.repository.save(canceled);
 
     this.logger.info("notification-canceled", { notificationId: id });

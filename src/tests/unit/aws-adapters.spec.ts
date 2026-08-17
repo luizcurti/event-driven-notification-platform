@@ -50,12 +50,25 @@ describe("aws adapters", () => {
     ).rejects.toThrow("forced-failure-email");
   });
 
-  it("dynamo repository save/find/findAll", async () => {
+  it("dynamo repository save/updateChannelState/find/findAll", async () => {
     const clients = await import("../../infrastructure/aws/clients");
     const sendMock = clients.documentClient.send as jest.Mock;
     sendMock.mockResolvedValueOnce({});
-    sendMock.mockResolvedValueOnce({ Item: { id: "1", status: NotificationStatus.PENDING } });
-    sendMock.mockResolvedValueOnce({ Items: [{ id: "1", status: NotificationStatus.PENDING }] });
+    sendMock.mockResolvedValueOnce({});
+    sendMock.mockResolvedValueOnce({
+      Item: {
+        id: "1",
+        channelStates: { EMAIL: { status: NotificationStatus.PENDING, retryCount: 0 } },
+      },
+    });
+    sendMock.mockResolvedValueOnce({
+      Items: [
+        {
+          id: "1",
+          channelStates: { EMAIL: { status: NotificationStatus.PENDING, retryCount: 0 } },
+        },
+      ],
+    });
 
     const { DynamoNotificationRepository } =
       await import("../../infrastructure/dynamodb/dynamo-notification-repository");
@@ -67,9 +80,14 @@ describe("aws adapters", () => {
       recipient: "a",
       channels: ["EMAIL" as any],
       payload: {},
-      status: NotificationStatus.PENDING,
+      channelStates: { EMAIL: { status: NotificationStatus.PENDING, retryCount: 0 } },
+      canceledAt: null,
       createdAt: "2026-01-01T00:00:00.000Z",
       updatedAt: "2026-01-01T00:00:00.000Z",
+    });
+
+    await repository.updateChannelState("1", "EMAIL" as any, {
+      status: NotificationStatus.DELIVERED,
       retryCount: 0,
     });
 
@@ -78,7 +96,7 @@ describe("aws adapters", () => {
 
     expect(found?.id).toBe("1");
     expect(all).toHaveLength(1);
-    expect(sendMock).toHaveBeenCalledTimes(3);
+    expect(sendMock).toHaveBeenCalledTimes(4);
   });
 
   it("dynamo repository returns null and empty array", async () => {

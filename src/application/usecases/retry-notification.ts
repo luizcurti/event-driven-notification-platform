@@ -1,5 +1,6 @@
+import { Notification } from "../../domain/entities/notification";
 import { Channel } from "../../domain/enums";
-import { EventPublisher, Logger } from "../ports";
+import { EventPublisher, Logger, NotificationRepository } from "../ports";
 
 interface RetryInput {
   notificationId: string;
@@ -12,12 +13,15 @@ interface RetryInput {
 export class RetryNotificationUseCase {
   constructor(
     private readonly publisher: EventPublisher,
+    private readonly repository: NotificationRepository,
     private readonly logger: Logger,
     private readonly maxRetries = 3,
   ) {}
 
   async execute(input: RetryInput): Promise<void> {
     if (input.retryCount > this.maxRetries) {
+      await this.markChannelFailed(input);
+
       this.logger.error("retry-limit-reached", {
         notificationId: input.notificationId,
         channel: input.channel,
@@ -43,5 +47,20 @@ export class RetryNotificationUseCase {
       channel: input.channel,
       retryCount: input.retryCount,
     });
+  }
+
+  private async markChannelFailed(input: RetryInput): Promise<void> {
+    const current = await this.repository.findById(input.notificationId);
+
+    if (!current) {
+      return;
+    }
+
+    const failed = new Notification(current).markChannelFailed(input.channel);
+    await this.repository.updateChannelState(
+      input.notificationId,
+      input.channel,
+      failed.channelState(input.channel),
+    );
   }
 }

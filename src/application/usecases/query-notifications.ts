@@ -1,3 +1,4 @@
+import { Notification } from "../../domain/entities/notification";
 import { NotFoundError } from "../../domain/errors";
 import { NotificationRepository } from "../ports";
 
@@ -11,7 +12,7 @@ export class GetNotificationUseCase {
       throw new NotFoundError(`notification ${id} not found`);
     }
 
-    return notification;
+    return new Notification(notification).toJSON();
   }
 }
 
@@ -19,6 +20,7 @@ export class ListNotificationsUseCase {
   constructor(private readonly repository: NotificationRepository) {}
 
   async execute() {
-    return this.repository.findAll();
+    const notifications = await this.repository.findAll();
+    return notifications.map((notification) => new Notification(notification).toJSON());
   }
 }

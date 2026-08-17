@@ -1,6 +1,6 @@
 resource "aws_lambda_function" "notification_api" {
   function_name = "${var.project_name}-notification-api"
-  role          = aws_iam_role.lambda_role.arn
+  role          = aws_iam_role.notification_api_role.arn
   runtime       = var.use_localstack ? "nodejs20.x" : "nodejs22.x"
   handler       = "handlers/api/notification-api-lambda.handler"
   filename      = var.lambda_zip_path
@@ -20,7 +20,7 @@ resource "aws_lambda_function" "notification_api" {
 
 resource "aws_lambda_function" "email" {
   function_name = "${var.project_name}-email"
-  role          = aws_iam_role.lambda_role.arn
+  role          = aws_iam_role.channel_role["email"].arn
   runtime       = var.use_localstack ? "nodejs20.x" : "nodejs22.x"
   handler       = "handlers/consumers/channel-lambdas.emailHandler"
   filename      = var.lambda_zip_path
@@ -38,7 +38,7 @@ resource "aws_lambda_function" "email" {
 
 resource "aws_lambda_function" "sms" {
   function_name = "${var.project_name}-sms"
-  role          = aws_iam_role.lambda_role.arn
+  role          = aws_iam_role.channel_role["sms"].arn
   runtime       = var.use_localstack ? "nodejs20.x" : "nodejs22.x"
   handler       = "handlers/consumers/channel-lambdas.smsHandler"
   filename      = var.lambda_zip_path
@@ -56,7 +56,7 @@ resource "aws_lambda_function" "sms" {
 
 resource "aws_lambda_function" "push" {
   function_name = "${var.project_name}-push"
-  role          = aws_iam_role.lambda_role.arn
+  role          = aws_iam_role.channel_role["push"].arn
   runtime       = var.use_localstack ? "nodejs20.x" : "nodejs22.x"
   handler       = "handlers/consumers/channel-lambdas.pushHandler"
   filename      = var.lambda_zip_path
@@ -74,7 +74,7 @@ resource "aws_lambda_function" "push" {
 
 resource "aws_lambda_function" "retry_worker" {
   function_name = "${var.project_name}-retry-worker"
-  role          = aws_iam_role.lambda_role.arn
+  role          = aws_iam_role.retry_worker_role.arn
   runtime       = var.use_localstack ? "nodejs20.x" : "nodejs22.x"
   handler       = "handlers/retry/retry-worker-lambda.handler"
   filename      = var.lambda_zip_path
@@ -82,8 +82,9 @@ resource "aws_lambda_function" "retry_worker" {
 
   environment {
     variables = {
-      EVENT_BUS_NAME = aws_cloudwatch_event_bus.notification_bus.name
-      MAX_RETRIES    = tostring(var.max_retries)
+      NOTIFICATIONS_TABLE_NAME = aws_dynamodb_table.notifications.name
+      EVENT_BUS_NAME           = aws_cloudwatch_event_bus.notification_bus.name
+      MAX_RETRIES              = tostring(var.max_retries)
     }
   }
 
@@ -133,8 +134,9 @@ resource "aws_lambda_permission" "allow_eventbridge_push" {
 }
 
 resource "aws_lambda_event_source_mapping" "retry_sqs_trigger" {
-  event_source_arn = aws_sqs_queue.retry_queue.arn
-  function_name    = aws_lambda_function.retry_worker.arn
-  batch_size       = 10
-  enabled          = true
+  event_source_arn        = aws_sqs_queue.retry_queue.arn
+  function_name           = aws_lambda_function.retry_worker.arn
+  batch_size              = 10
+  enabled                 = true
+  function_response_types = ["ReportBatchItemFailures"]
 }

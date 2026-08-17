@@ -28,8 +28,12 @@ export class ProcessChannelNotificationUseCase {
       return;
     }
 
-    const processing = new Notification(current).markProcessing().toJSON();
-    await this.repository.save(processing);
+    const notification = new Notification(current);
+    await this.repository.updateChannelState(
+      input.notificationId,
+      input.channel,
+      notification.markChannelProcessing(input.channel).channelState(input.channel),
+    );
 
     try {
       await this.sender.send({
@@ -38,19 +42,28 @@ export class ProcessChannelNotificationUseCase {
         payload: input.payload,
       });
 
-      const delivered = new Notification(processing).markDelivered().toJSON();
-      await this.repository.save(delivered);
+      await this.repository.updateChannelState(
+        input.notificationId,
+        input.channel,
+        notification.markChannelDelivered(input.channel).channelState(input.channel),
+      );
 
       this.logger.info("delivery-success", {
         notificationId: input.notificationId,
         channel: input.channel,
       });
     } catch (error) {
-      const retrying = new Notification(processing).markRetrying().toJSON();
-      await this.repository.save(retrying);
+      const retryingState = notification
+        .markChannelRetrying(input.channel)
+        .channelState(input.channel);
+      await this.repository.updateChannelState(input.notificationId, input.channel, retryingState);
+
       await this.retryQueue.enqueue({
-        ...input,
-        retryCount: retrying.retryCount,
+        notificationId: input.notificationId,
+        recipient: input.recipient,
+        payload: input.payload,
+        channel: input.channel,
+        retryCount: retryingState.retryCount,
       });
 
       this.logger.error("delivery-failed", {
