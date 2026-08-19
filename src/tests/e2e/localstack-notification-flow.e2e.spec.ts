@@ -356,7 +356,7 @@ describe("localstack e2e notification flow", () => {
     expect(response.statusCode).toBe(404);
   });
 
-  it("returns 500 for invalid JSON body", async () => {
+  it("returns 400 for invalid JSON body", async () => {
     const { handler } = await import("../../handlers/api/notification-api-lambda");
 
     const response = await handler({
@@ -366,30 +366,33 @@ describe("localstack e2e notification flow", () => {
       pathParameters: null,
     } as unknown as APIGatewayProxyEvent);
 
-    expect(response.statusCode).toBe(500);
-    expect(JSON.parse(response.body)).toEqual({ message: "internal error" });
+    expect(response.statusCode).toBe(400);
+    expect(JSON.parse(response.body)).toEqual({ message: "body must be valid JSON" });
   });
 
   it("returns 500 and logs unknown when a non-Error is thrown", async () => {
     const { handler } = await import("../../handlers/api/notification-api-lambda");
 
-    const originalJsonParse = JSON.parse;
-    JSON.parse = (() => {
-      throw "non-error-throw";
-    }) as typeof JSON.parse;
+    const originalJsonStringify = JSON.stringify;
+    JSON.stringify = ((value: unknown) => {
+      if (Array.isArray(value)) {
+        throw "non-error-throw";
+      }
+      return originalJsonStringify(value);
+    }) as typeof JSON.stringify;
 
     try {
       const response = await handler({
-        httpMethod: "POST",
+        httpMethod: "GET",
         path: "/notifications",
-        body: "{}",
+        body: null,
         pathParameters: null,
       } as unknown as APIGatewayProxyEvent);
 
       expect(response.statusCode).toBe(500);
-      expect(originalJsonParse(response.body)).toEqual({ message: "internal error" });
+      expect(JSON.parse(response.body)).toEqual({ message: "internal error" });
     } finally {
-      JSON.parse = originalJsonParse;
+      JSON.stringify = originalJsonStringify;
     }
   });
 });

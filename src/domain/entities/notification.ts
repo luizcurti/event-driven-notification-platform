@@ -32,11 +32,11 @@ export class Notification {
   constructor(private readonly props: NotificationProps) {}
 
   static create(input: CreateNotificationInput): Notification {
-    if (!input.eventType || input.eventType.trim().length === 0) {
+    if (typeof input.eventType !== "string" || input.eventType.trim().length === 0) {
       throw new DomainError("eventType is required");
     }
 
-    if (!input.recipient || input.recipient.trim().length === 0) {
+    if (typeof input.recipient !== "string" || input.recipient.trim().length === 0) {
       throw new DomainError("recipient is required");
     }
 

@@ -91,4 +91,60 @@ describe("retry-worker-lambda", () => {
 
     expect(result).toEqual({ batchItemFailures: [{ itemIdentifier: "msg-fail" }] });
   });
+
+  it("logs the reason before reporting a malformed message as a batch item failure", async () => {
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const { handler } = await import("../../handlers/retry/retry-worker-lambda");
+
+    const event = {
+      Records: [
+        {
+          messageId: "msg-malformed",
+          body: "{not-valid-json",
+        },
+      ],
+    } as unknown as SQSEvent;
+
+    const result = await handler(event);
+
+    expect(result).toEqual({ batchItemFailures: [{ itemIdentifier: "msg-malformed" }] });
+    expect(executeMock).not.toHaveBeenCalled();
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("retry-worker-batch-item-failed"),
+    );
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("msg-malformed"));
+
+    errorSpy.mockRestore();
+  });
+
+  it("logs 'unknown' when a non-Error value is thrown", async () => {
+    executeMock.mockImplementationOnce(async () => {
+      throw "non-error-throw";
+    });
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const { handler } = await import("../../handlers/retry/retry-worker-lambda");
+
+    const event = {
+      Records: [
+        {
+          messageId: "msg-non-error",
+          body: JSON.stringify({
+            notificationId: "1",
+            recipient: "a@email.com",
+            payload: {},
+            channel: "EMAIL",
+            retryCount: 1,
+          }),
+        },
+      ],
+    } as unknown as SQSEvent;
+
+    await handler(event);
+
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("unknown"));
+
+    errorSpy.mockRestore();
+  });
 });

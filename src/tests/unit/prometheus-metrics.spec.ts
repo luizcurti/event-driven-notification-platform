@@ -14,12 +14,18 @@ jest.mock("prom-client", () => {
 
 describe("PrometheusMetrics", () => {
   const originalUrl = process.env.PUSHGATEWAY_URL;
+  const originalLogStreamName = process.env.AWS_LAMBDA_LOG_STREAM_NAME;
 
   afterEach(() => {
     if (originalUrl === undefined) {
       delete process.env.PUSHGATEWAY_URL;
     } else {
       process.env.PUSHGATEWAY_URL = originalUrl;
+    }
+    if (originalLogStreamName === undefined) {
+      delete process.env.AWS_LAMBDA_LOG_STREAM_NAME;
+    } else {
+      process.env.AWS_LAMBDA_LOG_STREAM_NAME = originalLogStreamName;
     }
     jest.clearAllMocks();
   });
@@ -54,6 +60,23 @@ describe("PrometheusMetrics", () => {
       expect.objectContaining({
         jobName: "test-job",
         groupings: expect.objectContaining({ instance: expect.any(String) }),
+      }),
+    );
+  });
+
+  it("sanitizes the AWS log stream name so it is a valid pushgateway grouping key", async () => {
+    process.env.PUSHGATEWAY_URL = "http://pushgateway:9091";
+    process.env.AWS_LAMBDA_LOG_STREAM_NAME = "2024/01/15/[$LATEST]abcdef0123456789";
+    jest.resetModules();
+    mockPushAdd.mockResolvedValueOnce(undefined);
+    const { PrometheusMetrics } = await import("../../infrastructure/aws/prometheus-metrics");
+
+    const metrics = new PrometheusMetrics("test-job");
+    await metrics.flush();
+
+    expect(mockPushAdd).toHaveBeenCalledWith(
+      expect.objectContaining({
+        groupings: { instance: "2024_01_15___LATEST_abcdef0123456789" },
       }),
     );
   });

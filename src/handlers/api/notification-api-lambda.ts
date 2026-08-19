@@ -70,12 +70,23 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
   }
 };
 
-function parseBody(event: APIGatewayProxyEvent): Record<string, any> {
+interface CreateNotificationRequestBody {
+  eventType: string;
+  recipient: string;
+  channels: string[];
+  payload?: Record<string, unknown>;
+}
+
+function parseBody(event: APIGatewayProxyEvent): CreateNotificationRequestBody {
   if (!event.body) {
     throw new DomainError("body is required");
   }
 
-  return JSON.parse(event.body);
+  try {
+    return JSON.parse(event.body);
+  } catch {
+    throw new DomainError("body must be valid JSON");
+  }
 }
 
 function response(statusCode: number, data: unknown): APIGatewayProxyResult {

@@ -69,6 +69,7 @@ describe("aws adapters", () => {
         },
       ],
     });
+    sendMock.mockResolvedValueOnce({});
 
     const { DynamoNotificationRepository } =
       await import("../../infrastructure/dynamodb/dynamo-notification-repository");
@@ -93,10 +94,11 @@ describe("aws adapters", () => {
 
     const found = await repository.findById("1");
     const all = await repository.findAll();
+    await repository.markCanceled("1", "2026-01-01T00:00:01.000Z");
 
     expect(found?.id).toBe("1");
     expect(all).toHaveLength(1);
-    expect(sendMock).toHaveBeenCalledTimes(4);
+    expect(sendMock).toHaveBeenCalledTimes(5);
   });
 
   it("dynamo repository returns null and empty array", async () => {

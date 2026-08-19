@@ -29,12 +29,7 @@ export class CreateNotificationUseCase {
       data,
     });
 
-    this.logger.info("notification-created", {
-      notificationId: data.id,
-      eventType: data.eventType,
-    });
-
-    this.logger.info("event-published", {
+    this.logger.info("notification-created-and-published", {
       notificationId: data.id,
       eventType: data.eventType,
     });

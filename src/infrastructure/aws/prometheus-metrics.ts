@@ -47,7 +47,12 @@ const notificationsCanceledTotal = new Counter({
   registers: [registry],
 });
 
-const instanceId = process.env.AWS_LAMBDA_LOG_STREAM_NAME ?? randomUUID();
+// AWS_LAMBDA_LOG_STREAM_NAME contains "/", "[" and "]" (e.g. "2024/01/15/[$LATEST]abcdef..."),
+// which break the Pushgateway grouping-key URL path if used unsanitized.
+const instanceId = (process.env.AWS_LAMBDA_LOG_STREAM_NAME ?? randomUUID()).replace(
+  /[^a-zA-Z0-9_.-]/g,
+  "_",
+);
 
 export class PrometheusMetrics implements Metrics {
   private readonly gateway?: Pushgateway<"text/plain; version=0.0.4; charset=utf-8">;

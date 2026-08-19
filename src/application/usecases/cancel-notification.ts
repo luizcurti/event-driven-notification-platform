@@ -28,7 +28,7 @@ export class CancelNotificationUseCase {
     }
 
     const canceled = notification.cancel().toJSON();
-    await this.repository.save(canceled);
+    await this.repository.markCanceled(id, canceled.canceledAt as string);
 
     this.logger.info("notification-canceled", { notificationId: id });
 

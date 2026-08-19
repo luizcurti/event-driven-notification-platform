@@ -31,6 +31,9 @@ jobs:
       - name: Integration Tests
         run: npm run test:integration
 
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Build
         run: npm run build
 

@@ -30,6 +30,20 @@ export class DynamoNotificationRepository implements NotificationRepository {
     );
   }
 
+  async markCanceled(id: string, canceledAt: string): Promise<void> {
+    await documentClient.send(
+      new UpdateCommand({
+        TableName: environment.notificationsTableName,
+        Key: { id },
+        UpdateExpression: "SET canceledAt = :canceledAt, updatedAt = :updatedAt",
+        ExpressionAttributeValues: {
+          ":canceledAt": canceledAt,
+          ":updatedAt": new Date().toISOString(),
+        },
+      }),
+    );
+  }
+
   async findById(id: string): Promise<NotificationProps | null> {
     const result = await documentClient.send(
       new GetCommand({

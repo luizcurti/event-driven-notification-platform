@@ -63,6 +63,56 @@ describe("Notification entity", () => {
     ).toThrow("channels must have at least one value");
   });
 
+  it("throws a DomainError instead of crashing when eventType has the wrong type", () => {
+    expect(() =>
+      Notification.create({
+        eventType: 12345 as unknown as string,
+        recipient: "user@email.com",
+        channels: ["EMAIL"],
+        payload: {},
+      }),
+    ).toThrow("eventType is required");
+  });
+
+  it("throws a DomainError instead of crashing when recipient has the wrong type", () => {
+    expect(() =>
+      Notification.create({
+        eventType: "OrderApproved",
+        recipient: { nested: true } as unknown as string,
+        channels: ["EMAIL"],
+        payload: {},
+      }),
+    ).toThrow("recipient is required");
+  });
+
+  it("dedupes channelStates for duplicate channels without crashing", () => {
+    const notification = Notification.create({
+      eventType: "OrderApproved",
+      recipient: "user@email.com",
+      channels: ["EMAIL", "EMAIL"],
+      payload: {},
+    }).toJSON();
+
+    expect(notification.channels).toEqual(["EMAIL", "EMAIL"]);
+    expect(Object.keys(notification.channelStates)).toEqual(["EMAIL"]);
+  });
+
+  it("accepts large unicode payloads without altering their content", () => {
+    const payload = {
+      note: "pedido nº 42 — café ☕, 你好, emoji 🎉".repeat(200),
+      big: "x".repeat(50_000),
+    };
+
+    const notification = Notification.create({
+      eventType: "OrderApproved",
+      recipient: "user@email.com",
+      channels: ["EMAIL"],
+      payload,
+    }).toJSON();
+
+    expect(notification.payload).toEqual(payload);
+  });
+
   it("tracks per-channel status transitions independently", () => {
     const notification = Notification.create({
       eventType: "OrderApproved",

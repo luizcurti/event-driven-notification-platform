@@ -37,3 +37,13 @@ variable "pushgateway_url" {
   type    = string
   default = ""
 }
+
+variable "api_throttle_rate_limit" {
+  type    = number
+  default = 5
+}
+
+variable "api_throttle_burst_limit" {
+  type    = number
+  default = 10
+}

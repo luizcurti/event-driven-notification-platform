@@ -136,6 +136,22 @@ describe("notification-api-lambda", () => {
     expect(JSON.parse(result.body)).toEqual({ message: "body is required" });
   });
 
+  it("returns 400 when body is malformed JSON on POST", async () => {
+    const { handler } = await import("../../handlers/api/notification-api-lambda");
+
+    const event = {
+      httpMethod: "POST",
+      path: "/notifications",
+      body: "{not-json",
+      pathParameters: null,
+    } as unknown as APIGatewayProxyEvent;
+
+    const result = await handler(event);
+
+    expect(result.statusCode).toBe(400);
+    expect(JSON.parse(result.body)).toEqual({ message: "body must be valid JSON" });
+  });
+
   it("returns 400 for domain errors", async () => {
     createExecute.mockRejectedValue(new DomainError("invalid"));
     const { handler } = await import("../../handlers/api/notification-api-lambda");

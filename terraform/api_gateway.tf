@@ -75,6 +75,11 @@ resource "aws_api_gateway_usage_plan" "usage_plan" {
     api_id = aws_api_gateway_rest_api.notifications_api.id
     stage  = aws_api_gateway_stage.prod.stage_name
   }
+
+  throttle_settings {
+    rate_limit  = var.api_throttle_rate_limit
+    burst_limit = var.api_throttle_burst_limit
+  }
 }
 
 resource "aws_api_gateway_usage_plan_key" "main" {

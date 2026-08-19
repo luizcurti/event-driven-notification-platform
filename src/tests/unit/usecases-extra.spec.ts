@@ -22,6 +22,14 @@ class InMemoryRepository {
     item.channelStates = { ...item.channelStates, [channel]: state };
   }
 
+  async markCanceled(id: string, canceledAt: string): Promise<void> {
+    const item = this.items.find((current) => current.id === id);
+    if (!item) {
+      return;
+    }
+    item.canceledAt = canceledAt;
+  }
+
   async findById(id: string): Promise<NotificationProps | null> {
     return this.items.find((item) => item.id === id) ?? null;
   }
@@ -90,6 +98,29 @@ describe("extra use cases", () => {
     const canceled = await useCase.execute(item.id);
 
     expect(canceled.status).toBe("CANCELED");
+  });
+
+  it("cancel notification marks it canceled without overwriting the whole item", async () => {
+    const repository = new InMemoryRepository();
+    const item = Notification.create({
+      eventType: "OrderApproved",
+      recipient: "a",
+      channels: ["EMAIL"],
+      payload: {},
+    }).toJSON();
+    await repository.save(item);
+
+    const saveSpy = jest.spyOn(repository, "save");
+    const markCanceledSpy = jest.spyOn(repository, "markCanceled");
+
+    const useCase = new CancelNotificationUseCase(repository, new StubLogger());
+    await useCase.execute(item.id);
+
+    // A full save() would overwrite the whole item, silently clobbering a
+    // channelState update written concurrently by an in-flight channel Lambda.
+    // Cancellation must only touch canceledAt/updatedAt.
+    expect(saveSpy).not.toHaveBeenCalled();
+    expect(markCanceledSpy).toHaveBeenCalledWith(item.id, expect.any(String));
   });
 
   it("cancel notification throws when missing", async () => {

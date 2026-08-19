@@ -18,6 +18,14 @@ class InMemoryRepository {
     item.channelStates = { ...item.channelStates, [channel]: state };
   }
 
+  async markCanceled(id: string, canceledAt: string): Promise<void> {
+    const item = this.items.find((current) => current.id === id);
+    if (!item) {
+      return;
+    }
+    item.canceledAt = canceledAt;
+  }
+
   async findById(id: string): Promise<NotificationProps | null> {
     return this.items.find((item) => item.id === id) ?? null;
   }

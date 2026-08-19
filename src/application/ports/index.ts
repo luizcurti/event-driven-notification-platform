@@ -39,6 +39,7 @@ export interface Metrics {
 export interface NotificationRepository {
   save(notification: NotificationProps): Promise<void>;
   updateChannelState(id: string, channel: Channel, state: ChannelState): Promise<void>;
+  markCanceled(id: string, canceledAt: string): Promise<void>;
   findById(id: string): Promise<NotificationProps | null>;
   findAll(): Promise<NotificationProps[]>;
 }
