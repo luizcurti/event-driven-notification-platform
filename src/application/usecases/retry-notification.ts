@@ -1,6 +1,6 @@
 import { Notification } from "../../domain/entities/notification";
 import { Channel } from "../../domain/enums";
-import { EventPublisher, Logger, NotificationRepository } from "../ports";
+import { EventPublisher, Logger, Metrics, NotificationRepository } from "../ports";
 
 interface RetryInput {
   notificationId: string;
@@ -16,6 +16,7 @@ export class RetryNotificationUseCase {
     private readonly repository: NotificationRepository,
     private readonly logger: Logger,
     private readonly maxRetries = 3,
+    private readonly metrics?: Metrics,
   ) {}
 
   async execute(input: RetryInput): Promise<void> {
@@ -26,6 +27,8 @@ export class RetryNotificationUseCase {
         notificationId: input.notificationId,
         channel: input.channel,
       });
+
+      this.metrics?.retryExhausted(input.channel);
       return;
     }
 
@@ -47,6 +50,8 @@ export class RetryNotificationUseCase {
       channel: input.channel,
       retryCount: input.retryCount,
     });
+
+    this.metrics?.retryPublished(input.channel);
   }
 
   private async markChannelFailed(input: RetryInput): Promise<void> {

@@ -12,6 +12,7 @@ resource "aws_lambda_function" "notification_api" {
       EVENT_BUS_NAME           = aws_cloudwatch_event_bus.notification_bus.name
       RETRY_QUEUE_URL          = aws_sqs_queue.retry_queue.url
       MAX_RETRIES              = tostring(var.max_retries)
+      PUSHGATEWAY_URL          = var.pushgateway_url
     }
   }
 
@@ -30,6 +31,7 @@ resource "aws_lambda_function" "email" {
     variables = {
       NOTIFICATIONS_TABLE_NAME = aws_dynamodb_table.notifications.name
       RETRY_QUEUE_URL          = aws_sqs_queue.retry_queue.url
+      PUSHGATEWAY_URL          = var.pushgateway_url
     }
   }
 
@@ -48,6 +50,7 @@ resource "aws_lambda_function" "sms" {
     variables = {
       NOTIFICATIONS_TABLE_NAME = aws_dynamodb_table.notifications.name
       RETRY_QUEUE_URL          = aws_sqs_queue.retry_queue.url
+      PUSHGATEWAY_URL          = var.pushgateway_url
     }
   }
 
@@ -66,6 +69,7 @@ resource "aws_lambda_function" "push" {
     variables = {
       NOTIFICATIONS_TABLE_NAME = aws_dynamodb_table.notifications.name
       RETRY_QUEUE_URL          = aws_sqs_queue.retry_queue.url
+      PUSHGATEWAY_URL          = var.pushgateway_url
     }
   }
 
@@ -85,6 +89,7 @@ resource "aws_lambda_function" "retry_worker" {
       NOTIFICATIONS_TABLE_NAME = aws_dynamodb_table.notifications.name
       EVENT_BUS_NAME           = aws_cloudwatch_event_bus.notification_bus.name
       MAX_RETRIES              = tostring(var.max_retries)
+      PUSHGATEWAY_URL          = var.pushgateway_url
     }
   }
 

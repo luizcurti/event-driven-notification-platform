@@ -1,6 +1,6 @@
 import { Notification } from "../../domain/entities/notification";
 import { Channel } from "../../domain/enums";
-import { ChannelSender, Logger, NotificationRepository, RetryQueue } from "../ports";
+import { ChannelSender, Logger, Metrics, NotificationRepository, RetryQueue } from "../ports";
 
 interface ProcessChannelInput {
   notificationId: string;
@@ -15,6 +15,7 @@ export class ProcessChannelNotificationUseCase {
     private readonly sender: ChannelSender,
     private readonly retryQueue: RetryQueue,
     private readonly logger: Logger,
+    private readonly metrics?: Metrics,
   ) {}
 
   async execute(input: ProcessChannelInput): Promise<void> {
@@ -35,6 +36,8 @@ export class ProcessChannelNotificationUseCase {
       notification.markChannelProcessing(input.channel).channelState(input.channel),
     );
 
+    const startedAt = Date.now();
+
     try {
       await this.sender.send({
         notificationId: input.notificationId,
@@ -52,6 +55,8 @@ export class ProcessChannelNotificationUseCase {
         notificationId: input.notificationId,
         channel: input.channel,
       });
+
+      this.metrics?.deliveryAttempt(input.channel, "success", (Date.now() - startedAt) / 1000);
     } catch (error) {
       const retryingState = notification
         .markChannelRetrying(input.channel)
@@ -71,6 +76,8 @@ export class ProcessChannelNotificationUseCase {
         channel: input.channel,
         error: error instanceof Error ? error.message : "unknown",
       });
+
+      this.metrics?.deliveryAttempt(input.channel, "failed", (Date.now() - startedAt) / 1000);
     }
   }
 }

@@ -27,6 +27,15 @@ export interface Logger {
   error(message: string, data?: Record<string, unknown>): void;
 }
 
+export interface Metrics {
+  notificationCreated(eventType: string): void;
+  deliveryAttempt(channel: Channel, status: "success" | "failed", durationSeconds: number): void;
+  retryPublished(channel: Channel): void;
+  retryExhausted(channel: Channel): void;
+  notificationCanceled(): void;
+  flush(): Promise<void>;
+}
+
 export interface NotificationRepository {
   save(notification: NotificationProps): Promise<void>;
   updateChannelState(id: string, channel: Channel, state: ChannelState): Promise<void>;

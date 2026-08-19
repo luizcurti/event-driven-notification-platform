@@ -1,6 +1,6 @@
 import { Notification, type CreateNotificationInput } from "../../domain/entities/notification";
 import { NotificationStatus } from "../../domain/enums";
-import { EventPublisher, Logger, NotificationRepository } from "../ports";
+import { EventPublisher, Logger, Metrics, NotificationRepository } from "../ports";
 
 interface CreateNotificationResult {
   id: string;
@@ -12,6 +12,7 @@ export class CreateNotificationUseCase {
     private readonly repository: NotificationRepository,
     private readonly publisher: EventPublisher,
     private readonly logger: Logger,
+    private readonly metrics?: Metrics,
   ) {}
 
   async execute(input: CreateNotificationInput): Promise<CreateNotificationResult> {
@@ -37,6 +38,8 @@ export class CreateNotificationUseCase {
       notificationId: data.id,
       eventType: data.eventType,
     });
+
+    this.metrics?.notificationCreated(data.eventType);
 
     return { id: data.id, status: data.status };
   }

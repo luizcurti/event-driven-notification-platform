@@ -1,12 +1,13 @@
 import { Notification } from "../../domain/entities/notification";
 import { NotificationStatus } from "../../domain/enums";
 import { DomainError, NotFoundError } from "../../domain/errors";
-import { Logger, NotificationRepository } from "../ports";
+import { Logger, Metrics, NotificationRepository } from "../ports";
 
 export class CancelNotificationUseCase {
   constructor(
     private readonly repository: NotificationRepository,
     private readonly logger: Logger,
+    private readonly metrics?: Metrics,
   ) {}
 
   async execute(id: string) {
@@ -30,6 +31,8 @@ export class CancelNotificationUseCase {
     await this.repository.save(canceled);
 
     this.logger.info("notification-canceled", { notificationId: id });
+
+    this.metrics?.notificationCanceled();
 
     return canceled;
   }

@@ -7,17 +7,19 @@ import {
 } from "../../application/usecases/query-notifications";
 import { DomainError, NotFoundError } from "../../domain/errors";
 import { ConsoleLogger } from "../../infrastructure/aws/console-logger";
+import { PrometheusMetrics } from "../../infrastructure/aws/prometheus-metrics";
 import { DynamoNotificationRepository } from "../../infrastructure/dynamodb/dynamo-notification-repository";
 import { EventBridgePublisher } from "../../infrastructure/eventbridge/eventbridge-publisher";
 
 const repository = new DynamoNotificationRepository();
 const logger = new ConsoleLogger();
 const publisher = new EventBridgePublisher();
+const metrics = new PrometheusMetrics("notification-api");
 
-const createUseCase = new CreateNotificationUseCase(repository, publisher, logger);
+const createUseCase = new CreateNotificationUseCase(repository, publisher, logger, metrics);
 const listUseCase = new ListNotificationsUseCase(repository);
 const getUseCase = new GetNotificationUseCase(repository);
-const cancelUseCase = new CancelNotificationUseCase(repository, logger);
+const cancelUseCase = new CancelNotificationUseCase(repository, logger, metrics);
 
 export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
@@ -63,6 +65,8 @@ export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayPr
     });
 
     return response(500, { message: "internal error" });
+  } finally {
+    await metrics.flush();
   }
 };
 

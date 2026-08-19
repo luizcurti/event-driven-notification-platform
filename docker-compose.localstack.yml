@@ -8,7 +8,93 @@ services:
     environment:
       - SERVICES=dynamodb,events,sqs,lambda,cloudwatch,iam,apigateway
       - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
       - DEBUG=0
+      - PERSISTENCE=1
+      - LAMBDA_DOCKER_NETWORK=event-driven-notification-net
     volumes:
       - "./.localstack:/var/lib/localstack"
       - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - notification-net
+
+  pushgateway:
+    profiles: ["observability"]
+    image: prom/pushgateway:v1.9.0
+    container_name: event-driven-pushgateway
+    ports:
+      - "${PUSHGATEWAY_HOST_PORT:-9091}:9091"
+    networks:
+      - notification-net
+
+  prometheus:
+    profiles: ["observability"]
+    image: prom/prometheus:v2.55.1
+    container_name: event-driven-prometheus
+    ports:
+      - "${PROMETHEUS_HOST_PORT:-9090}:9090"
+    volumes:
+      - "./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+      - "prometheus-data:/prometheus"
+    depends_on:
+      - pushgateway
+    networks:
+      - notification-net
+
+  loki:
+    profiles: ["observability"]
+    image: grafana/loki:2.9.8
+    container_name: event-driven-loki
+    command: -config.file=/etc/loki/loki-config.yml
+    ports:
+      - "${LOKI_HOST_PORT:-3100}:3100"
+    volumes:
+      - "./observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro"
+      - "loki-data:/loki"
+    networks:
+      - notification-net
+
+  promtail:
+    profiles: ["observability"]
+    image: grafana/promtail:2.9.8
+    container_name: event-driven-promtail
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - "./observability/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "/var/lib/docker/containers:/var/lib/docker/containers:ro"
+    networks:
+      - notification-net
+    depends_on:
+      - loki
+
+  grafana:
+    profiles: ["observability"]
+    image: grafana/grafana:11.3.1
+    container_name: event-driven-grafana
+    ports:
+      - "${GRAFANA_HOST_PORT:-3000}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+    volumes:
+      - "./observability/grafana/provisioning:/etc/grafana/provisioning:ro"
+      - "./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro"
+      - "grafana-data:/var/lib/grafana"
+    depends_on:
+      - prometheus
+      - loki
+    networks:
+      - notification-net
+
+networks:
+  notification-net:
+    name: event-driven-notification-net
+
+volumes:
+  localstack-data:
+  prometheus-data:
+  loki-data:
+  grafana-data:

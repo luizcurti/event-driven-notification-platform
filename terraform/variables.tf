@@ -32,3 +32,8 @@ variable "localstack_endpoint" {
   type    = string
   default = "http://localhost:4566"
 }
+
+variable "pushgateway_url" {
+  type    = string
+  default = ""
+}

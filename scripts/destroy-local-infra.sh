@@ -14,7 +14,7 @@ echo "Destroying Terraform (LocalStack mode)"
     -var="api_key_value=local-dev-key-1234567890" || true
 )
 
-echo "Stopping LocalStack"
-docker compose -f "$COMPOSE_FILE" --profile "$PROFILE" down --remove-orphans
+echo "Stopping LocalStack and observability stack"
+docker compose -f "$COMPOSE_FILE" --profile "$PROFILE" --profile observability down --remove-orphans
 
 echo "Local environment destroyed"

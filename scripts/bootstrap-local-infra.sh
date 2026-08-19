@@ -6,6 +6,7 @@ PROFILE="${LOCALSTACK_PROFILE:-e2e-localstack}"
 ENDPOINT="${LOCALSTACK_ENDPOINT:-http://localhost:4566}"
 HEALTH_URL="${ENDPOINT}/_localstack/health"
 API_KEY_VALUE="${API_KEY_VALUE:-local-dev-key-1234567890}"
+PUSHGATEWAY_URL="${PUSHGATEWAY_URL:-http://pushgateway:9091}"
 LOCALSTACK_HOST_PORT="${LOCALSTACK_HOST_PORT:-}"
 POSTMAN_ENV_FILE="${POSTMAN_ENV_FILE:-postman/localstack.postman_environment.json}"
 
@@ -56,8 +57,8 @@ ensure_localstack() {
   if curl -fsS "$HEALTH_URL" >/dev/null 2>&1; then
     echo "LocalStack is already running."
   else
-    echo "Starting LocalStack via Docker Compose (profile: $PROFILE)"
-    docker compose -f "$COMPOSE_FILE" --profile "$PROFILE" up -d
+    echo "Starting LocalStack via Docker Compose (profile: $PROFILE, observability)"
+    docker compose -f "$COMPOSE_FILE" --profile "$PROFILE" --profile observability up -d
 
     echo "Waiting for LocalStack healthcheck"
     curl -fsS "$HEALTH_URL" --retry 60 --retry-delay 2 --retry-all-errors --retry-connrefused >/dev/null
@@ -92,7 +93,8 @@ apply_terraform() {
     terraform apply -auto-approve -input=false \
       -var="use_localstack=true" \
       -var="localstack_endpoint=${ENDPOINT}" \
-      -var="api_key_value=${API_KEY_VALUE}"
+      -var="api_key_value=${API_KEY_VALUE}" \
+      -var="pushgateway_url=${PUSHGATEWAY_URL}"
   )
 }
 

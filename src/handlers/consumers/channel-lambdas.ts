@@ -3,20 +3,27 @@ import { ProcessChannelNotificationUseCase } from "../../application/usecases/pr
 import { Channel } from "../../domain/enums";
 import { ConsoleLogger } from "../../infrastructure/aws/console-logger";
 import { createChannelSender } from "../../infrastructure/aws/channel-senders";
+import { PrometheusMetrics } from "../../infrastructure/aws/prometheus-metrics";
 import { SqsRetryQueue } from "../../infrastructure/aws/sqs-retry-queue";
 import { DynamoNotificationRepository } from "../../infrastructure/dynamodb/dynamo-notification-repository";
 import { processConsumerEvent } from "./process-consumer-event";
 
 function createConsumerHandler(channel: Channel) {
+  const metrics = new PrometheusMetrics(`channel-${channel.toLowerCase()}`);
   const useCase = new ProcessChannelNotificationUseCase(
     new DynamoNotificationRepository(),
     createChannelSender(channel),
     new SqsRetryQueue(),
     new ConsoleLogger(),
+    metrics,
   );
 
   return async (event: EventBridgeEvent<string, any>): Promise<void> => {
-    await processConsumerEvent(event, useCase, channel);
+    try {
+      await processConsumerEvent(event, useCase, channel);
+    } finally {
+      await metrics.flush();
+    }
   };
 }
 
