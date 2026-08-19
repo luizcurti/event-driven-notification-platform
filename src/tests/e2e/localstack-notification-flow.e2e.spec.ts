@@ -395,4 +395,30 @@ describe("localstack e2e notification flow", () => {
       JSON.stringify = originalJsonStringify;
     }
   });
+
+  it("returns 500 and logs the error message when an Error is thrown", async () => {
+    const { handler } = await import("../../handlers/api/notification-api-lambda");
+
+    const originalJsonStringify = JSON.stringify;
+    JSON.stringify = ((value: unknown) => {
+      if (Array.isArray(value)) {
+        throw new Error("boom");
+      }
+      return originalJsonStringify(value);
+    }) as typeof JSON.stringify;
+
+    try {
+      const response = await handler({
+        httpMethod: "GET",
+        path: "/notifications",
+        body: null,
+        pathParameters: null,
+      } as unknown as APIGatewayProxyEvent);
+
+      expect(response.statusCode).toBe(500);
+      expect(JSON.parse(response.body)).toEqual({ message: "internal error" });
+    } finally {
+      JSON.stringify = originalJsonStringify;
+    }
+  });
 });
