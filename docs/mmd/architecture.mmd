@@ -1,0 +1,34 @@
+flowchart TD
+    U[Users / Clients] --> WAF[AWS WAF]
+    WAF --> APIGW[API Gateway]
+    APIGW --> API[notification-api-lambda]
+    API --> EB[Amazon EventBridge]
+
+    EB --> E[email-lambda]
+    EB --> S[sms-lambda]
+    EB --> P[push-lambda]
+
+    E --> DDB[(DynamoDB notifications)]
+    S --> DDB
+    P --> DDB
+
+    E -. failure .-> RQ[SQS Retry Queue]
+    S -. failure .-> RQ
+    P -. failure .-> RQ
+
+    RQ --> RW[retry-worker-lambda]
+    RW --> EB
+
+    RQ -. max retries .-> DLQ[SQS DLQ]
+
+    API --> CW[CloudWatch Logs]
+    E --> CW
+    S --> CW
+    P --> CW
+    RW --> CW
+
+    API --> PG[Prometheus Pushgateway]
+    E --> PG
+    S --> PG
+    P --> PG
+    RW --> PG

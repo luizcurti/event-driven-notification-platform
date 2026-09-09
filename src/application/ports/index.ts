@@ -1,0 +1,59 @@
+import { ChannelState, NotificationProps } from "../../domain/entities/notification";
+import { Channel } from "../../domain/enums";
+
+export interface ChannelSender {
+  channel: Channel;
+  send(input: {
+    notificationId: string;
+    recipient: string;
+    payload: Record<string, unknown>;
+  }): Promise<void>;
+}
+
+export interface EventPayload {
+  id: string;
+  type: string;
+  source: string;
+  time: string;
+  data: unknown;
+}
+
+export interface EventPublisher {
+  publish(event: EventPayload): Promise<void>;
+}
+
+export interface Logger {
+  info(message: string, data?: Record<string, unknown>): void;
+  error(message: string, data?: Record<string, unknown>): void;
+}
+
+export interface Metrics {
+  notificationCreated(eventType: string): void;
+  deliveryAttempt(channel: Channel, status: "success" | "failed", durationSeconds: number): void;
+  retryPublished(channel: Channel): void;
+  retryExhausted(channel: Channel): void;
+  notificationCanceled(): void;
+  flush(): Promise<void>;
+}
+
+export interface FindAllOptions {
+  limit?: number;
+  cursor?: string;
+}
+
+export interface NotificationPage {
+  items: NotificationProps[];
+  nextCursor?: string;
+}
+
+export interface NotificationRepository {
+  save(notification: NotificationProps): Promise<void>;
+  updateChannelState(id: string, channel: Channel, state: ChannelState): Promise<void>;
+  markCanceled(id: string, canceledAt: string): Promise<void>;
+  findById(id: string): Promise<NotificationProps | null>;
+  findAll(options?: FindAllOptions): Promise<NotificationPage>;
+}
+
+export interface RetryQueue {
+  enqueue(message: Record<string, unknown>): Promise<void>;
+}

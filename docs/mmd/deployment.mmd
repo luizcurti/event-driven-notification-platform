@@ -1,0 +1,25 @@
+flowchart LR
+    subgraph LOCAL["Local development (Docker Compose)"]
+        DEV[Developer] --> BOOTSTRAP[npm run bootstrap:local]
+        BOOTSTRAP --> LS[LocalStack container]
+        BOOTSTRAP --> TF1[terraform apply -var use_localstack=true]
+        TF1 --> LS
+        LS --> OBS[Observability profile:
+        Prometheus, Pushgateway,
+        Grafana, Loki, Promtail]
+    end
+
+    subgraph AWS["Real AWS deployment (Terraform)"]
+        CI[CI deploy job / manual] --> TF2[terraform apply]
+        TF2 --> APIGW[API Gateway + WAF]
+        TF2 --> LAMBDAS[Lambda functions
+        notification-api, email, sms, push, retry-worker]
+        TF2 --> DDB[(DynamoDB)]
+        TF2 --> EB[EventBridge bus + rules]
+        TF2 --> SQS[SQS retry queue + DLQ]
+        TF2 --> CW[CloudWatch Logs + Alarms]
+        TF2 --> SNS[SNS alerts topic]
+    end
+
+    LOCAL -. same Terraform config,
+    use_localstack toggles endpoints .-> AWS

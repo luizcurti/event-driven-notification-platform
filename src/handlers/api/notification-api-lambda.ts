@@ -1,0 +1,111 @@
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
+import { CancelNotificationUseCase } from "../../application/usecases/cancel-notification";
+import { CreateNotificationUseCase } from "../../application/usecases/create-notification";
+import {
+  GetNotificationUseCase,
+  ListNotificationsUseCase,
+} from "../../application/usecases/query-notifications";
+import { DomainError, NotFoundError } from "../../domain/errors";
+import { ConsoleLogger } from "../../infrastructure/aws/console-logger";
+import { PrometheusMetrics } from "../../infrastructure/aws/prometheus-metrics";
+import { DynamoNotificationRepository } from "../../infrastructure/dynamodb/dynamo-notification-repository";
+import { EventBridgePublisher } from "../../infrastructure/eventbridge/eventbridge-publisher";
+
+const repository = new DynamoNotificationRepository();
+const logger = new ConsoleLogger();
+const publisher = new EventBridgePublisher();
+const metrics = new PrometheusMetrics("notification-api");
+
+const createUseCase = new CreateNotificationUseCase(repository, publisher, logger, metrics);
+const listUseCase = new ListNotificationsUseCase(repository);
+const getUseCase = new GetNotificationUseCase(repository);
+const cancelUseCase = new CancelNotificationUseCase(repository, logger, metrics);
+
+export const handler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    if (event.httpMethod === "POST" && event.path === "/notifications") {
+      const body = parseBody(event);
+      const result = await createUseCase.execute({
+        eventType: body.eventType,
+        recipient: body.recipient,
+        channels: body.channels,
+        payload: body.payload ?? {},
+      });
+
+      return response(201, result);
+    }
+
+    if (event.httpMethod === "GET" && event.path === "/notifications") {
+      const query = event.queryStringParameters ?? {};
+      const page = await listUseCase.execute({
+        limit: Number(query.limit) || undefined,
+        cursor: query.nextToken,
+      });
+      return response(200, { items: page.items, nextToken: page.nextCursor });
+    }
+
+    if (event.httpMethod === "GET" && event.pathParameters?.id) {
+      const notification = await getUseCase.execute(event.pathParameters.id);
+      return response(200, notification);
+    }
+
+    if (event.httpMethod === "DELETE" && event.pathParameters?.id) {
+      const canceled = await cancelUseCase.execute(event.pathParameters.id);
+      return response(200, canceled);
+    }
+
+    return response(404, { message: "route not found" });
+  } catch (error) {
+    if (error instanceof DomainError) {
+      return response(400, { message: error.message });
+    }
+
+    if (error instanceof NotFoundError) {
+      return response(404, { message: error.message });
+    }
+
+    logger.error("api-unhandled-error", {
+      error: error instanceof Error ? error.message : "unknown",
+    });
+
+    return response(500, { message: "internal error" });
+  } finally {
+    await metrics.flush();
+  }
+};
+
+interface CreateNotificationRequestBody {
+  eventType: string;
+  recipient: string;
+  channels: string[];
+  payload?: Record<string, unknown>;
+}
+
+function parseBody(event: APIGatewayProxyEvent): CreateNotificationRequestBody {
+  if (!event.body) {
+    throw new DomainError("body is required");
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(event.body);
+  } catch {
+    throw new DomainError("body must be valid JSON");
+  }
+
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new DomainError("body must be a JSON object");
+  }
+
+  return parsed as CreateNotificationRequestBody;
+}
+
+function response(statusCode: number, data: unknown): APIGatewayProxyResult {
+  return {
+    statusCode,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(data),
+  };
+}

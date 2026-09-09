@@ -1,0 +1,166 @@
+import { NotificationPage } from "../../application/ports";
+import { CancelNotificationUseCase } from "../../application/usecases/cancel-notification";
+import {
+  GetNotificationUseCase,
+  ListNotificationsUseCase,
+} from "../../application/usecases/query-notifications";
+import { ChannelState, Notification, NotificationProps } from "../../domain/entities/notification";
+import { Channel, NotificationStatus } from "../../domain/enums";
+
+class InMemoryRepository {
+  public items: NotificationProps[] = [];
+
+  async save(notification: NotificationProps): Promise<void> {
+    this.items = this.items.filter((item) => item.id !== notification.id);
+    this.items.push(notification);
+  }
+
+  async updateChannelState(id: string, channel: Channel, state: ChannelState): Promise<void> {
+    const item = this.items.find((current) => current.id === id);
+    if (!item) {
+      return;
+    }
+    item.channelStates = { ...item.channelStates, [channel]: state };
+  }
+
+  async markCanceled(id: string, canceledAt: string): Promise<void> {
+    const item = this.items.find((current) => current.id === id);
+    if (!item) {
+      return;
+    }
+    item.canceledAt = canceledAt;
+  }
+
+  async findById(id: string): Promise<NotificationProps | null> {
+    return this.items.find((item) => item.id === id) ?? null;
+  }
+
+  async findAll(): Promise<NotificationPage> {
+    return { items: this.items };
+  }
+}
+
+class StubLogger {
+  info(): void {}
+  error(): void {}
+}
+
+describe("extra use cases", () => {
+  it("list notifications returns all items", async () => {
+    const repository = new InMemoryRepository();
+    await repository.save(
+      Notification.create({
+        eventType: "OrderApproved",
+        recipient: "a",
+        channels: ["EMAIL"],
+        payload: {},
+      }).toJSON(),
+    );
+
+    const useCase = new ListNotificationsUseCase(repository);
+    const page = await useCase.execute();
+
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0].status).toBe("PENDING");
+    expect(page.nextCursor).toBeUndefined();
+  });
+
+  it("get notification returns existing item", async () => {
+    const repository = new InMemoryRepository();
+    const item = Notification.create({
+      eventType: "OrderApproved",
+      recipient: "a",
+      channels: ["EMAIL"],
+      payload: {},
+    }).toJSON();
+    await repository.save(item);
+
+    const useCase = new GetNotificationUseCase(repository);
+    const found = await useCase.execute(item.id);
+
+    expect(found.id).toBe(item.id);
+  });
+
+  it("get notification throws when missing", async () => {
+    const useCase = new GetNotificationUseCase(new InMemoryRepository());
+    await expect(useCase.execute("missing")).rejects.toThrow("not found");
+  });
+
+  it("cancel notification updates status", async () => {
+    const repository = new InMemoryRepository();
+    const item = Notification.create({
+      eventType: "OrderApproved",
+      recipient: "a",
+      channels: ["EMAIL"],
+      payload: {},
+    }).toJSON();
+    await repository.save(item);
+
+    const useCase = new CancelNotificationUseCase(repository, new StubLogger());
+    const canceled = await useCase.execute(item.id);
+
+    expect(canceled.status).toBe("CANCELED");
+  });
+
+  it("cancel notification marks it canceled without overwriting the whole item", async () => {
+    const repository = new InMemoryRepository();
+    const item = Notification.create({
+      eventType: "OrderApproved",
+      recipient: "a",
+      channels: ["EMAIL"],
+      payload: {},
+    }).toJSON();
+    await repository.save(item);
+
+    const saveSpy = jest.spyOn(repository, "save");
+    const markCanceledSpy = jest.spyOn(repository, "markCanceled");
+
+    const useCase = new CancelNotificationUseCase(repository, new StubLogger());
+    await useCase.execute(item.id);
+
+    // A full save() would overwrite the whole item, silently clobbering a
+    // channelState update written concurrently by an in-flight channel Lambda.
+    // Cancellation must only touch canceledAt/updatedAt.
+    expect(saveSpy).not.toHaveBeenCalled();
+    expect(markCanceledSpy).toHaveBeenCalledWith(item.id, expect.any(String));
+  });
+
+  it("cancel notification throws when missing", async () => {
+    const useCase = new CancelNotificationUseCase(new InMemoryRepository(), new StubLogger());
+    await expect(useCase.execute("missing")).rejects.toThrow("not found");
+  });
+
+  it("cancel notification throws when already canceled", async () => {
+    const repository = new InMemoryRepository();
+    const item = Notification.create({
+      eventType: "OrderApproved",
+      recipient: "a",
+      channels: ["EMAIL"],
+      payload: {},
+    }).toJSON();
+    await repository.save(item);
+
+    const useCase = new CancelNotificationUseCase(repository, new StubLogger());
+    await useCase.execute(item.id);
+
+    await expect(useCase.execute(item.id)).rejects.toThrow("already canceled");
+  });
+
+  it("cancel notification throws when already delivered", async () => {
+    const repository = new InMemoryRepository();
+    const item = Notification.create({
+      eventType: "OrderApproved",
+      recipient: "a",
+      channels: ["EMAIL"],
+      payload: {},
+    }).toJSON();
+    await repository.save(item);
+    await repository.updateChannelState(item.id, Channel.EMAIL, {
+      status: NotificationStatus.DELIVERED,
+      retryCount: 0,
+    });
+
+    const useCase = new CancelNotificationUseCase(repository, new StubLogger());
+    await expect(useCase.execute(item.id)).rejects.toThrow("cannot be canceled");
+  });
+});

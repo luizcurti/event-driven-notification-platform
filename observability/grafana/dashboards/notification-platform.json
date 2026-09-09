@@ -1,0 +1,128 @@
+{
+  "id": null,
+  "uid": "notification-platform",
+  "title": "Notification Platform",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Notifications created (rate by event type)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+          "expr": "sum(rate(notifications_created_total[5m])) by (event_type)",
+          "legendFormat": "{{event_type}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Delivery attempts (rate by channel and status)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+          "expr": "sum(rate(notification_delivery_attempts_total[5m])) by (channel, status)",
+          "legendFormat": "{{channel}} - {{status}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Delivery success rate",
+      "type": "stat",
+      "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 8 },
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1 },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+          "expr": "sum(rate(notification_delivery_attempts_total{status=\"success\"}[5m])) / sum(rate(notification_delivery_attempts_total[5m]))",
+          "legendFormat": "success rate"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Delivery duration p95 (by channel)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 8 },
+      "fieldConfig": {
+        "defaults": { "unit": "s" },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+          "expr": "histogram_quantile(0.95, sum(rate(notification_delivery_duration_seconds_bucket[5m])) by (le, channel))",
+          "legendFormat": "{{channel}} p95"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Retries published vs exhausted (rate by channel)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+          "expr": "sum(rate(notification_retries_published_total[5m])) by (channel)",
+          "legendFormat": "published - {{channel}}"
+        },
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+          "expr": "sum(rate(notification_retries_exhausted_total[5m])) by (channel)",
+          "legendFormat": "exhausted - {{channel}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Notifications canceled (rate)",
+      "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus-ds" },
+          "expr": "sum(rate(notifications_canceled_total[5m]))",
+          "legendFormat": "canceled"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Platform logs",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "loki-ds" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 24 },
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessages": true,
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki-ds" },
+          "expr": "{job=\"docker\"}"
+        }
+      ]
+    }
+  ]
+}

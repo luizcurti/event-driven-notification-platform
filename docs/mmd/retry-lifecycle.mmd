@@ -1,0 +1,21 @@
+flowchart TD
+    SEND[Channel send attempt] -->|success| DELIVERED[channel: DELIVERED]
+    SEND -->|failure| RETRYING[channel: RETRYING]
+
+    RETRYING --> ENQUEUE[Enqueue to SQS Retry Queue]
+    ENQUEUE --> WORKER[retry-worker-lambda]
+
+    WORKER -->|retryCount <= MAX_RETRIES| REPUBLISH[Republish NotificationRequested to EventBridge]
+    REPUBLISH --> SEND
+
+    WORKER -->|retryCount > MAX_RETRIES business limit| FAILED[channel: FAILED — no message loss]
+
+    ENQUEUE -.->|Lambda invocation itself fails
+    SQS redrive: maxReceiveCount| DLQ[SQS retry-dlq]
+    DLQ -.-> ALARM[CloudWatch Alarm]
+    ALARM -.-> SNS[SNS alerts topic]
+
+    classDef business fill:#2E7D32,color:#fff,stroke:none
+    classDef infra fill:#C0392B,color:#fff,stroke:none
+    class RETRYING,WORKER,REPUBLISH,FAILED,DELIVERED business
+    class DLQ,ALARM,SNS infra

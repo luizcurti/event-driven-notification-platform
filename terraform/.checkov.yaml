@@ -1,0 +1,52 @@
+# Checkov baseline for this project. Every skip below is a deliberate, reviewed decision,
+# not an unexamined suppression — see the reason next to each check. Anything not listed
+# here must fail the build (see .github/workflows/ci-cd.yml).
+skip-check:
+  # --- False positives: the control is actually implemented, but count = var.use_localstack
+  # ? 0 : 1 (see waf.tf) isn't resolved by checkov's static graph without a plan file, so it
+  # always evaluates the "not present" branch. Verified correct via `terraform apply` against
+  # LocalStack and manual review of waf.tf.
+  - CKV2_AWS_29 # "public API gateway are protected by WAF" — aws_wafv2_web_acl_association.api_association
+  - CKV2_AWS_31 # "WAF2 has a Logging Configuration" — aws_wafv2_web_acl_logging_configuration.api_waf
+  - CKV2_AWS_77 # "WAFv2 WebACL configured with AMR for Log4j" — AWSManagedRulesKnownBadInputsRuleSet in waf.tf
+
+  # --- Legacy-attribute check, doesn't recognize the modern equivalent already in place.
+  - CKV_AWS_116 # "Lambda function configured for a DLQ" — checks the legacy dead_letter_config
+  # attribute; this project uses the newer per-invoke destination_config.on_failure
+  # (aws_lambda_function_event_invoke_config.channel_async_failure in lambda.tf), which routes
+  # async invocation failures to the same DLQ (retry_dlq in sqs.tf).
+
+  # --- Deliberately out of scope for this project's size/threat model. Adding these would be
+  # infrastructure not justified by current complexity (see the architecture review rules this
+  # project follows) rather than a real gap.
+  - CKV_AWS_117 # "Lambda configured inside a VPC" — no VPC-only resource (RDS, private endpoint)
+  # anywhere in this stack; DynamoDB/SQS/EventBridge are all reachable over public AWS service
+  # endpoints. A VPC would mean a NAT Gateway (recurring cost) and complexity with no resource
+  # on the other end needing it.
+  - CKV_AWS_173 # "Lambda env var encryption" — env vars are ARNs/URLs/table names only, no
+  # secrets (see the `environment` blocks in lambda.tf); already encrypted at rest with the
+  # AWS-owned key by default.
+  - CKV_AWS_272 # "Lambda code-signing" — needs an AWS Signer profile and signing pipeline;
+  # disproportionate to this project's CI/deploy setup and threat model.
+  - CKV_AWS_158 # "CloudWatch Log Group encrypted by KMS"
+  - CKV_AWS_338 # "CloudWatch log groups retain logs >= 1 year" — retention is an explicit,
+  # intentional 14-day default (`log_retention_days` in variables.tf), a deliberate
+  # cost/operability tradeoff, not an unmanaged setting.
+  - CKV_AWS_26 # "SNS topic encrypted" — alerts topic only carries CloudWatch alarm state
+  # transitions, not application data; a customer-managed CMK here is key-management overhead
+  # (policy, rotation, IAM grants) without a compliance driver at this scale.
+  - CKV_AWS_119 # "DynamoDB encrypted with a KMS CMK" — same reasoning as CKV_AWS_26/158; the
+  # table is already encrypted at rest with the AWS-owned key by default.
+  - CKV_AWS_120 # "API Gateway caching enabled"
+  - CKV_AWS_225 # "API Gateway method setting caching enabled" — this API's own ANY route mixes
+  # GET (list/get) with POST/DELETE (create/cancel, both mutating); enabling response caching
+  # risks serving a stale notification/list after a write, which is an actual correctness bug
+  # for this API, not a missing optimization.
+  - CKV2_AWS_51 # "API Gateway uses client certificate authentication" — API key + WAF +
+  # usage-plan throttling (see api_gateway.tf) is the deliberate access-control model for this
+  # API; mutual TLS PKI is disproportionate to it.
+  - CKV2_AWS_53 # "API Gateway request is validated" — both methods are ANY + AWS_PROXY,
+  # delegating parsing entirely to the Lambda; request validators model one schema per
+  # method/content-type and fit poorly here. Body/param validation already happens in
+  # notification-api-lambda.ts (parseBody, Notification.create) and is covered by unit, e2e,
+  # and Postman tests (see the 400 cases in postman/).
