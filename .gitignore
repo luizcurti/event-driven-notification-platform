@@ -10,3 +10,5 @@ dist
 .vscode
 .localstack
 .claude
+tfplan
+terraform/ci_backend.tf

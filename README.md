@@ -345,7 +345,34 @@ Add `-var="alert_email=you@example.com"` to also subscribe an email address to t
 
 ### State
 
-There is no `backend` block in [terraform/main.tf](terraform/main.tf): state is local (`terraform.tfstate`, gitignored). This project has no team-shared remote deploy flow, so an S3 bucket and lock table would be infrastructure with no user.
+There is no `backend` block in [terraform/main.tf](terraform/main.tf), so a manual `terraform apply` from your machine (and the `e2e-localstack` CI job) uses local state (`terraform.tfstate`, gitignored).
+
+The CI/CD deploy job adds an S3 backend at deploy time instead (it writes a `ci_backend.tf` before `terraform init`), using the bucket created by [bootstrap/](bootstrap/) with native S3 locking (`use_lockfile`, no DynamoDB table). Committing the backend block would break the LocalStack job, which applies the same stack with local state. Once the pipeline owns the real AWS stack, don't also `apply` it manually with local state: the two states would diverge.
+
+### Deploy via GitHub Actions
+
+Pushes to `main` deploy to real AWS through the `deploy` job in [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml), after `validate` and `e2e-localstack` pass. It authenticates with GitHub OIDC, so no AWS access keys are stored in GitHub. Until it is configured, the job skips the AWS steps and stays green.
+
+One-time setup:
+
+1. Apply [bootstrap/](bootstrap/) with your own admin credentials. It creates the remote-state bucket, the GitHub OIDC provider and the `event-driven-notification-platform-github-deploy` IAM role, which only the `production` environment of this repo can assume:
+
+   ```bash
+   cd bootstrap
+   terraform init
+   terraform apply   # default region: eu-west-2; override with -var="aws_region=..."
+   # add -var="create_oidc_provider=false" if the account already has the GitHub OIDC provider
+   ```
+
+2. In GitHub → Settings → Environments, create `production` and add:
+   - variables `AWS_DEPLOY_ROLE_ARN`, `TF_STATE_BUCKET` and `AWS_REGION`, copied from the bootstrap outputs
+   - secret `API_KEY_VALUE`: the API Gateway key clients send as `x-api-key` (at least 20 characters)
+   - optional variable `ALERT_EMAIL`, subscribed to the CloudWatch alarms topic
+   - optional protection rules (required reviewers) to approve each deploy by hand
+
+3. Push to `main` (or re-run the latest `main` workflow). The job runs `terraform plan` + `apply` with the freshly built Lambda zip, then smoke-tests the live API: `GET /notifications` must return `200` with the API key and `403` without it. The API URL is printed in the job summary.
+
+The deploy role's permissions ([bootstrap/deploy_permissions.tf](bootstrap/deploy_permissions.tf)) are scoped to resources named with the `event-driven-notification-platform-` prefix wherever AWS supports it. It can only attach the API Gateway CloudWatch managed policy to roles it creates, and can't modify itself.
 
 ### Local validation
 
@@ -432,9 +459,9 @@ Every Lambda sets `reserved_concurrent_executions` (the `lambda_reserved_concurr
 
 GitHub Actions pipeline in [.github/workflows/ci-cd.yml](.github/workflows/ci-cd.yml) with stages:
 
-- **validate job**: install, `npm audit` (dependency/security check), format check, lint, typecheck, unit tests, integration tests, build, `terraform fmt -check`, `terraform validate`, [tflint](https://github.com/terraform-linters/tflint), and [checkov](https://www.checkov.io/) (config in [terraform/.checkov.yaml](terraform/.checkov.yaml), which documents why each skipped check doesn't apply to this project — everything else fails the build).
+- **validate job**: install, `npm audit` (dependency/security check), format check, lint, typecheck, unit tests, integration tests, build, `terraform fmt -check`, `terraform validate` (main stack and [bootstrap/](bootstrap/)), [tflint](https://github.com/terraform-linters/tflint), and [checkov](https://www.checkov.io/) (config in [terraform/.checkov.yaml](terraform/.checkov.yaml), which documents why each skipped check doesn't apply to this project — everything else fails the build).
 - **e2e-localstack job**: starts a dedicated LocalStack profile, runs the Jest E2E suite (with a 100% coverage gate), then builds the Lambda zip, deploys the real Terraform stack into that LocalStack instance, and runs the Postman collection against the live API Gateway endpoint via `newman` — the same commands documented in [API / Collection Tests](#api--collection-tests) and [Full Local Bootstrap](#full-local-bootstrap-docker--terraform). The Terraform resources and LocalStack container are torn down afterwards (`if: always()`).
-- **deploy job** (main): runs only after validate + e2e-localstack pass; it is a CI-only gate (`terraform validate` again) and does **not** run `terraform apply` against real AWS — there's no AWS credentials step in the workflow. Applying to a real AWS account is a deliberately separate, manual step outside this pipeline (see [Deploy with Terraform](#deploy-with-terraform)).
+- **deploy job** (push to main): runs only after validate + e2e-localstack pass, in the `production` GitHub environment. It assumes the deploy IAM role via GitHub OIDC (no stored AWS keys), builds the Lambda zip, runs `terraform plan` + `apply` against real AWS with S3 remote state, and smoke-tests the live API. Until the environment is configured it skips the AWS steps (see [Deploy via GitHub Actions](#deploy-via-github-actions)).
 
 There is no application `Dockerfile`: Lambdas are deployed as a zip archive ([terraform/lambda.tf](terraform/lambda.tf)), not container images, so "Docker" in this project means the LocalStack + observability stack in [docker-compose.localstack.yml](docker-compose.localstack.yml) used for local development and for the `e2e-localstack` CI job — there is no separate image to build.
 
