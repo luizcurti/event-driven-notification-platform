@@ -99,7 +99,7 @@ data "aws_iam_policy_document" "deploy_permissions" {
   }
 
   statement {
-    sid     = "ApiGateway"
+    sid = "ApiGateway"
     actions = [
       "apigateway:GET",
       "apigateway:POST",
