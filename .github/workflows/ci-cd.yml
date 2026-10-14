@@ -249,12 +249,27 @@ jobs:
       - name: Terraform Plan
         if: steps.config.outputs.enabled == 'true'
         working-directory: terraform
-        run: terraform plan -input=false -out=tfplan
+        run: terraform plan -input=false -no-color -out=tfplan 2>&1 | tee plan.log
 
       - name: Terraform Apply
         if: steps.config.outputs.enabled == 'true'
         working-directory: terraform
-        run: terraform apply -input=false tfplan
+        run: terraform apply -input=false -no-color tfplan 2>&1 | tee apply.log
+
+      # Surface each Terraform "Error:" block as a run annotation, so failures are readable
+      # from the run summary / checks API without downloading the raw job log.
+      - name: Report Terraform errors
+        if: failure() && steps.config.outputs.enabled == 'true'
+        working-directory: terraform
+        run: |
+          for f in plan.log apply.log; do
+            [ -f "$f" ] || continue
+            awk '{ gsub(/%/, "%25") }
+                 /^Error: / { if (buf) print buf; buf = $0; n = 0; next }
+                 buf && n < 15 { buf = buf "%0A" $0; n++ }
+                 END { if (buf) print buf }' "$f" |
+              while IFS= read -r block; do echo "::error title=Terraform ($f)::${block}"; done
+          done
 
       - name: Smoke Test
         if: steps.config.outputs.enabled == 'true'
