@@ -16,6 +16,18 @@ variable "github_repository" {
   default     = "luizcurti/event-driven-notification-platform"
 }
 
+variable "github_owner_id" {
+  description = "Numeric GitHub ID of the repository owner, used in the immutable OIDC subject format (gh api repos/OWNER/REPO --jq .owner.id)."
+  type        = number
+  default     = 9360461
+}
+
+variable "github_repository_id" {
+  description = "Numeric GitHub ID of the repository, used in the immutable OIDC subject format (gh api repos/OWNER/REPO --jq .id)."
+  type        = number
+  default     = 1305198652
+}
+
 variable "github_environment" {
   description = "GitHub environment the deploy job runs in. Only that environment can assume the role."
   type        = string
