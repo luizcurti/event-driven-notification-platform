@@ -368,6 +368,7 @@ One-time setup:
    - variables `AWS_DEPLOY_ROLE_ARN`, `TF_STATE_BUCKET` and `AWS_REGION`, copied from the bootstrap outputs
    - secret `API_KEY_VALUE`: the API Gateway key clients send as `x-api-key` (at least 20 characters)
    - optional variable `ALERT_EMAIL`, subscribed to the CloudWatch alarms topic
+   - optional variable `LAMBDA_RESERVED_CONCURRENCY` (default `-1`, no reservation). New AWS accounts have a 10-execution concurrency limit, which leaves nothing to reserve; raise the _Lambda → Concurrent executions_ quota in Service Quotas first, then set it (e.g. `10`)
    - optional protection rules (required reviewers) to approve each deploy by hand
 
 3. Push to `main` (or re-run the latest `main` workflow). The job runs `terraform plan` + `apply` with the freshly built Lambda zip, then smoke-tests the live API: `GET /notifications` must return `200` with the API key and `403` without it. The API URL is printed in the job summary.

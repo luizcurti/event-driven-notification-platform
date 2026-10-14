@@ -169,6 +169,10 @@ jobs:
       TF_VAR_aws_region: ${{ vars.AWS_REGION }}
       TF_VAR_api_key_value: ${{ secrets.API_KEY_VALUE }}
       TF_VAR_alert_email: ${{ vars.ALERT_EMAIL }}
+      # -1 = no reserved concurrency. New AWS accounts start with a 10-execution account limit,
+      # which leaves nothing to reserve (AWS keeps 10 unreserved). Once the account quota is
+      # raised, set LAMBDA_RESERVED_CONCURRENCY in the production environment (e.g. 10).
+      TF_VAR_lambda_reserved_concurrency: ${{ vars.LAMBDA_RESERVED_CONCURRENCY || '-1' }}
       TF_IN_AUTOMATION: "true"
     steps:
       - name: Check deploy configuration
@@ -249,11 +253,13 @@ jobs:
       - name: Terraform Plan
         if: steps.config.outputs.enabled == 'true'
         working-directory: terraform
+        shell: bash # bash -eo pipefail, so `| tee` keeps Terraform's exit code
         run: terraform plan -input=false -no-color -out=tfplan 2>&1 | tee plan.log
 
       - name: Terraform Apply
         if: steps.config.outputs.enabled == 'true'
         working-directory: terraform
+        shell: bash # bash -eo pipefail, so `| tee` keeps Terraform's exit code
         run: terraform apply -input=false -no-color tfplan 2>&1 | tee apply.log
 
       # Surface each Terraform "Error:" block as a run annotation, so failures are readable
