@@ -36,6 +36,14 @@ locals {
 
   oidc_provider_arn = var.create_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : "arn:aws:iam::${local.account_id}:oidc-provider/${local.oidc_host}"
 
+  github_owner = split("/", var.github_repository)[0]
+  github_repo  = split("/", var.github_repository)[1]
+
+  github_oidc_subjects = [
+    "repo:${var.github_repository}:environment:${var.github_environment}",
+    "repo:${local.github_owner}@${var.github_owner_id}/${local.github_repo}@${var.github_repository_id}:environment:${var.github_environment}",
+  ]
+
   common_tags = {
     Project = var.project_name
   }
@@ -118,10 +126,12 @@ data "aws_iam_policy_document" "deploy_trust" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # GitHub may send the subject in either format: the classic name-based one, or the
+    # immutable one that embeds owner/repo IDs (survives renames and blocks repo-name reuse).
     condition {
       test     = "StringEquals"
       variable = "${local.oidc_host}:sub"
-      values   = ["repo:${var.github_repository}:environment:${var.github_environment}"]
+      values   = local.github_oidc_subjects
     }
   }
 }
