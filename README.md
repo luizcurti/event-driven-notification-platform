@@ -373,6 +373,10 @@ One-time setup:
 
 3. Push to `main` (or re-run the latest `main` workflow). The job runs `terraform plan` + `apply` with the freshly built Lambda zip, then smoke-tests the live API: `GET /notifications` must return `200` with the API key and `403` without it. The API URL is printed in the job summary.
 
+### Tear down / recreate
+
+To stop paying for the stack while it's unused (mainly the WAF web ACL, a fixed monthly cost), run **Actions → Destroy → Run workflow** on `main` and type `destroy` to confirm. It runs `terraform destroy` against the same S3 state, deleting every resource in [terraform/](terraform/), DynamoDB data included. The [bootstrap/](bootstrap/) resources (state bucket, OIDC provider, deploy role) are kept, so recreating it needs no setup: run **Actions → CI-CD → Run workflow** on `main` (any push to `main` also redeploys).
+
 The deploy role's permissions ([bootstrap/deploy_permissions.tf](bootstrap/deploy_permissions.tf)) are scoped to resources named with the `event-driven-notification-platform-` prefix wherever AWS supports it. It can only attach the API Gateway CloudWatch managed policy to roles it creates, and can't modify itself.
 
 ### Local validation
