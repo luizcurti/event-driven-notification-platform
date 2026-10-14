@@ -99,8 +99,15 @@ data "aws_iam_policy_document" "deploy_permissions" {
   }
 
   statement {
-    sid       = "ApiGateway"
-    actions   = ["apigateway:GET", "apigateway:POST", "apigateway:PUT", "apigateway:PATCH", "apigateway:DELETE"]
+    sid     = "ApiGateway"
+    actions = [
+      "apigateway:GET",
+      "apigateway:POST",
+      "apigateway:PUT",
+      "apigateway:PATCH",
+      "apigateway:DELETE",
+      "apigateway:SetWebACL", # wafv2:AssociateWebACL / DisassociateWebACL on a REST API stage
+    ]
     resources = ["arn:aws:apigateway:${local.region}::/*"]
   }
 
